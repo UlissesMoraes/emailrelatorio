@@ -1,0 +1,1068 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Principal - Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<!-- Overview Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h6 class="text-muted mb-3">Visão Geral</h6>
+        <div class="row">
+            <!-- Total de E-mails -->
+            <div class="col-md-3 mb-3">
+                <div class="dashboard-stat-card">
+                    <div class="stat-icon products">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div>
+                        <p class="stat-value">{{ email_count }}</p>
+                        <p class="stat-label">Total de E-mails</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Contas de E-mail -->
+            <div class="col-md-3 mb-3">
+                <div class="dashboard-stat-card">
+                    <div class="stat-icon orders">
+                        <i class="fas fa-at"></i>
+                    </div>
+                    <div>
+                        <p class="stat-value">{{ email_accounts|length }}</p>
+                        <p class="stat-label">Contas de E-mail</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Relatórios -->
+            <div class="col-md-3 mb-3">
+                <div class="dashboard-stat-card">
+                    <div class="stat-icon stock">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div>
+                        <p class="stat-value">{{ recent_reports|length }}</p>
+                        <p class="stat-label">Relatórios</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Última Atualização -->
+            <div class="col-md-3 mb-3">
+                <div class="dashboard-stat-card">
+                    <div class="stat-icon out-of-stock">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <p class="stat-value">{{ now.strftime('%H:%M') }}</p>
+                        <p class="stat-label">Atualizado em {{ now.strftime('%d/%m/%Y') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row mb-4">
+    <!-- E-mails Enviados vs Recebidos -->
+    <div class="col-md-4 mb-4">
+        <div class="inventory-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-muted mb-0">E-mails Enviados vs Recebidos</h6>
+            </div>
+            <div class="text-center mt-2">
+                <canvas id="emailTypeChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Volume de E-mails -->
+    <div class="col-md-4 mb-4">
+        <div class="inventory-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-muted mb-0">Volume de E-mails (Últimos 7 dias)</h6>
+            </div>
+            <div class="text-center mt-2">
+                <canvas id="emailVolumeChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Remetentes -->
+    <div class="col-md-4 mb-4">
+        <div class="inventory-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-muted mb-0">Top Remetentes</h6>
+            </div>
+            <div>
+                <canvas id="topSendersChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Accounts Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="inventory-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-muted mb-0">Contas de E-mail</h6>
+                <div>
+                    <a href="{{ url_for('add_email_account') }}" class="btn btn-sm btn-primary me-2">
+                        <i class="fas fa-plus-circle me-1"></i>Adicionar Conta
+                    </a>
+                    {% if email_accounts %}
+                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                        <i class="fas fa-trash-alt me-1"></i>Excluir Conta
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if email_accounts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Provedor</th>
+                            <th>Endereço de E-mail</th>
+                            <th>Última Sincronização</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in email_accounts %}
+                        <tr>
+                            <td>
+                                <span class="badge 
+                                    {% if account.provider == 'gmail' %}bg-danger{% elif account.provider == 'outlook' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                    {{ account.provider|upper }}
+                                </span>
+                            </td>
+                            <td>{{ account.email_address }}</td>
+                            <td id="sync-status-{{ account.id }}">
+                                {% if account.last_synced %}
+                                    {{ account.last_synced.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    <span class="text-muted">Nunca sincronizada</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('email_folders', account_id=account.id) }}" class="btn btn-sm btn-outline-info me-1" title="Gerenciar Pastas">
+                                    <i class="fas fa-folder"></i>
+                                </a>
+                                <div class="btn-group me-1">
+                                    <a href="{{ url_for('sync_emails', account_id=account.id) }}" class="btn btn-sm btn-outline-primary manual-sync-btn" title="Sincronizar Caixa de Entrada">
+                                        <i class="fas fa-sync"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ url_for('sync_all_folders', account_id=account.id) }}">Sincronizar Todas as Pastas</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('sync_all_folders', account_id=account.id, force_clear='true') }}">Limpar e Resincronizar Todas as Pastas</a></li>
+                                    </ul>
+                                </div>
+                                <button 
+                                    class="btn btn-sm btn-outline-success auto-sync-toggle" 
+                                    data-account-id="{{ account.id }}" 
+                                    title="Sincronização Automática" 
+                                    id="auto-sync-{{ account.id }}">
+                                    <i class="fas fa-robot"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-envelope-open-text fa-3x mb-3 text-muted"></i>
+                <p>Você ainda não adicionou nenhuma conta de e-mail.</p>
+                <div class="alert alert-warning mx-auto" style="max-width: 600px;">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Atenção:</strong> Este sistema trabalha apenas com e-mails reais. É necessário fornecer credenciais válidas para sincronizar conteúdo. Não são gerados dados de demonstração.
+                </div>
+                <a href="{{ url_for('add_email_account') }}" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus-circle me-1"></i>Adicionar Conta de E-mail
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Reports Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="inventory-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-muted mb-0">Relatórios Recentes</h6>
+                <a href="{{ url_for('create_report') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-file-alt me-1"></i>Criar Relatório
+                </a>
+            </div>
+            
+            {% if recent_reports %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Tipo</th>
+                            <th>Data de Criação</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in recent_reports %}
+                        <tr>
+                            <td>{{ report.name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if report.type == 'summary' %}bg-info{% else %}bg-primary{% endif %}">
+                                    {% if report.type == 'summary' %}Resumido{% else %}Detalhado{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ report.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-outline-info me-1" title="Visualizar">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='pdf') }}">PDF</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='csv') }}">CSV</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-chart-bar fa-3x mb-3 text-muted"></i>
+                <p>Você ainda não criou nenhum relatório.</p>
+                <a href="{{ url_for('create_report') }}" class="btn btn-primary">
+                    <i class="fas fa-file-alt me-1"></i>Criar Primeiro Relatório
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Atividade por Pasta -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="inventory-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-muted mb-0">Atividade por Pasta</h6>
+                <span class="text-muted">Distribuição de e-mails por pasta</span>
+            </div>
+            <div>
+                <canvas id="emailsByFolderChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Visualizations Header -->
+<div class="row mb-2">
+    <div class="col-12">
+        <h6 class="text-muted mb-0">Visualizações Avançadas</h6>
+        <p class="text-muted small">Análises detalhadas de padrões de comunicação por e-mail</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Primeira linha: Hourly Activity and Contact Bubble Charts -->
+    <div class="col-md-6 mb-2">
+        <div class="advanced-chart-container h-100">
+            <h6 class="advanced-chart-title">Atividade por Hora</h6>
+            <div class="chart-canvas-wrapper">
+                <canvas id="hourlyActivityChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contact Bubble Chart -->
+    <div class="col-md-6 mb-2">
+        <div class="advanced-chart-container h-100">
+            <h6 class="advanced-chart-title">Principais Contatos</h6>
+            <div class="chart-canvas-wrapper">
+                <canvas id="contactBubbleChart"></canvas>
+            </div>
+            <div class="text-center mt-1">
+                <small class="text-muted">Tamanho da bolha representa o volume total de comunicação</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Segunda linha: Email Metrics Radar and Word Cloud -->
+    <div class="col-md-6 mb-2">
+        <div class="advanced-chart-container h-100">
+            <h6 class="advanced-chart-title">Métricas de Comunicação</h6>
+            <div class="chart-canvas-wrapper">
+                <canvas id="emailMetricsChart"></canvas>
+            </div>
+            <div class="text-center mt-1">
+                <small class="text-muted">Análise comparativa de métricas de comunicação</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Word Cloud Visualization -->
+    <div class="col-md-6 mb-2">
+        <div class="advanced-chart-container h-100">
+            <h6 class="advanced-chart-title">Termos Mais Frequentes</h6>
+            <div id="subjectWordCloudContainer" class="chart-canvas-wrapper word-cloud-container">
+                <!-- Word cloud will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Terceira linha: Activity Heatmap (meia largura) -->
+    <div class="col-md-8 mx-auto mb-2">
+        <div class="advanced-chart-container">
+            <h6 class="advanced-chart-title">Padrões de Atividade (Dia/Hora)</h6>
+            <div class="chart-canvas-wrapper">
+                <canvas id="activityHeatmapChart"></canvas>
+            </div>
+            <!-- Legend for heatmap -->
+            <div class="heatmap-scale mt-2">
+                <div class="heatmap-scale-item heatmap-low"></div>
+                <div class="heatmap-scale-item heatmap-medium"></div>
+                <div class="heatmap-scale-item heatmap-high"></div>
+            </div>
+            <div class="heatmap-labels">
+                <span>Baixa</span>
+                <span>Média</span>
+                <span>Alta</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/advanced-charts.css') }}">
+<style>
+/* Ajustes adicionais para visualização avançada */
+.word-cloud-container {
+    min-height: 300px;
+    overflow: hidden;
+    border-radius: 12px;
+    background: rgba(248, 250, 252, 0.5);
+    padding: 1rem;
+}
+
+/* Estilo para botões de sincronização automática */
+.auto-sync-toggle {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.auto-sync-toggle.btn-success {
+    animation: pulse 2s infinite;
+}
+
+.auto-sync-toggle.checking {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+/* Estilo para o container de toasts */
+.toast-container {
+    z-index: 1060;
+}
+
+.chart-placeholder {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.chart-placeholder i {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Hover effects */
+.advanced-chart-container {
+    transition: all 0.3s ease;
+}
+
+.advanced-chart-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/advanced-charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Adiciona um indicador de carregamento
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'loading-charts';
+    loadingIndicator.className = 'text-center py-5';
+    loadingIndicator.innerHTML = `
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-3">Carregando estatísticas...</p>
+    `;
+    document.getElementById('charts-container') || document.querySelector('.row:first-child').appendChild(loadingIndicator);
+    
+    // Define timeout para evitar que a requisição demore muito
+    const timeout = setTimeout(() => {
+        showTimeoutMessage();
+    }, 20000); // Aumentado para 20 segundos durante sincronização
+    
+    // Carrega os dados dos e-mails para os gráficos via AJAX com sistema de cache inteligente
+    // Determinar se deve forçar atualização após sincronização
+    const urlParams = new URLSearchParams(window.location.search);
+    const syncCompleted = urlParams.get('sync') === 'completed';
+    const timestamp = new Date().getTime();
+    
+    // Mostrar indicação visual mais clara durante sincronização
+    if (syncCompleted) {
+        const syncMessage = document.createElement('div');
+        syncMessage.id = 'sync-message';
+        syncMessage.className = 'alert alert-info mb-4';
+        syncMessage.innerHTML = `
+            <i class="fas fa-sync-alt me-2"></i>
+            <strong>Processando e-mails sincronizados.</strong> A geração dos gráficos pode levar alguns instantes...
+        `;
+        document.querySelector('.row:first-child').prepend(syncMessage);
+        
+        // Remover após alguns segundos
+        setTimeout(() => {
+            document.getElementById('sync-message')?.remove();
+        }, 15000);
+    }
+    
+    // Se uma sincronização acabou de ser concluída, força atualização dos dados
+    // caso contrário, podemos usar a versão em cache para carregar mais rápido
+    const force_refresh = syncCompleted ? '1' : '0';
+    
+    fetch('{{ url_for("email_stats") }}?t=' + timestamp + '&force_refresh=' + force_refresh, {
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
+        .then(response => {
+            clearTimeout(timeout);
+            if (!response.ok) {
+                throw new Error('Resposta do servidor não ok: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Remover indicador de carregamento
+            document.getElementById('loading-charts')?.remove();
+            
+            // Cria gráficos básicos
+            try {
+                createEmailTypeChart(data);
+                createEmailVolumeChart(data);
+                createTopSendersChart(data);
+                createEmailsByFolderChart(data);
+            } catch (err) {
+                console.error('Erro ao criar gráficos básicos:', err);
+                showErrorMessage('básicos');
+            }
+            
+            // Inicializa gráficos avançados
+            try {
+                initializeAdvancedCharts(data);
+            } catch (err) {
+                console.error('Erro ao criar gráficos avançados:', err);
+                showErrorMessage('avançados');
+            }
+        })
+        .catch(error => {
+            clearTimeout(timeout);
+            document.getElementById('loading-charts')?.remove();
+            console.error('Erro ao carregar estatísticas de e-mail:', error);
+            
+            // Mostra mensagem de erro 
+            showErrorMessage();
+            
+            // Tenta criar gráficos básicos com dados mínimos para evitar erros de UI
+            try {
+                createDefaultCharts();
+            } catch (e) {
+                console.error('Não foi possível criar gráficos padrão:', e);
+            }
+        });
+    
+    // Função para mostrar mensagens de erro
+    function showErrorMessage(tipoGraficos = 'todos') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+        alertDiv.setAttribute('role', 'alert');
+        
+        let mensagem = '';
+        if (tipoGraficos === 'todos') {
+            mensagem = 'Não foi possível carregar as estatísticas de e-mail. Por favor, sincronize sua conta ou tente novamente mais tarde.';
+        } else {
+            mensagem = `Ocorreu um erro ao gerar os gráficos ${tipoGraficos}. Alguns dados podem não estar disponíveis.`;
+        }
+        
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        `;
+        
+        // Adicionar antes do primeiro elemento da página
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+    }
+    
+    // Função para mostrar mensagem de timeout
+    function showTimeoutMessage() {
+        document.getElementById('loading-charts')?.remove();
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-info alert-dismissible fade show';
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            <i class="fas fa-clock me-2"></i>
+            O carregamento das estatísticas está demorando mais do que o esperado. Isto pode acontecer quando há muitos e-mails para processar.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        `;
+        
+        // Adicionar antes do primeiro elemento da página
+        const container = document.querySelector('.container-fluid');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Tenta criar gráficos padrão para evitar página em branco
+        createDefaultCharts();
+    }
+});
+
+// Função para criar o gráfico de e-mails enviados vs recebidos
+function createEmailTypeChart(data) {
+    const emailTypeCtx = document.getElementById('emailTypeChart').getContext('2d');
+    
+    // Usa dados reais se disponíveis, ou dados de exemplo
+    const sentVsReceived = data?.sent_vs_received || { 
+        sent: 25, 
+        received: 75 
+    };
+    
+    new Chart(emailTypeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Enviados', 'Recebidos'],
+            datasets: [{
+                data: [sentVsReceived.sent, sentVsReceived.received],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.7)',  // Verde para enviados
+                    'rgba(54, 162, 235, 0.7)'  // Azul para recebidos
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para criar o gráfico de volume de e-mails nos últimos 7 dias
+function createEmailVolumeChart(data) {
+    const emailVolumeCtx = document.getElementById('emailVolumeChart').getContext('2d');
+    
+    // Usa dados reais se disponíveis, ou dados de exemplo
+    const dailyCounts = data?.daily_counts || [
+        { date: '2023-04-02', count: 14 },
+        { date: '2023-04-03', count: 21 },
+        { date: '2023-04-04', count: 17 },
+        { date: '2023-04-05', count: 28 },
+        { date: '2023-04-06', count: 22 },
+        { date: '2023-04-07', count: 10 },
+        { date: '2023-04-08', count: 5 }
+    ];
+    
+    // Formata as datas para exibição
+    const labels = dailyCounts.map(item => {
+        const date = new Date(item.date);
+        return date.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'});
+    });
+    
+    new Chart(emailVolumeCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Quantidade de E-mails',
+                data: dailyCounts.map(item => item.count),
+                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para criar o gráfico de top remetentes
+function createTopSendersChart(data) {
+    const topSendersCtx = document.getElementById('topSendersChart').getContext('2d');
+    
+    // Usa dados reais se disponíveis, ou dados de exemplo
+    const topSenders = data?.top_senders || [
+        { sender: 'contato@empresa.com.br', count: 45 },
+        { sender: 'marketing@loja.com', count: 32 },
+        { sender: 'newsletter@blog.com', count: 28 },
+        { sender: 'suporte@servico.com', count: 22 },
+        { sender: 'info@plataforma.com', count: 17 }
+    ];
+    
+    // Limita a 5 remetentes e trunca nomes longos
+    const topFiveSenders = topSenders.slice(0, 5);
+    const labels = topFiveSenders.map(item => truncateText(item.sender, 20));
+    
+    new Chart(topSendersCtx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'E-mails',
+                data: topFiveSenders.map(item => item.count),
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            // Mostra o e-mail completo no tooltip
+                            const index = tooltipItems[0].dataIndex;
+                            return topFiveSenders[index].sender;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para criar o gráfico de e-mails por pasta
+function createEmailsByFolderChart(data) {
+    const emailsByFolderCtx = document.getElementById('emailsByFolderChart').getContext('2d');
+    
+    // Usa dados reais se disponíveis, ou dados de exemplo
+    const folderData = data?.folders_data || [
+        { folder: 'INBOX', count: 120 },
+        { folder: 'Sent', count: 45 },
+        { folder: 'Drafts', count: 12 },
+        { folder: 'Spam', count: 28 },
+        { folder: 'Trash', count: 8 },
+        { folder: 'Important', count: 35 }
+    ];
+    
+    // Traduz os nomes das pastas comuns
+    const folderTranslations = {
+        'INBOX': 'Caixa de Entrada',
+        'Sent': 'Enviados',
+        'Drafts': 'Rascunhos',
+        'Spam': 'Spam',
+        'Trash': 'Lixeira',
+        'Important': 'Importante',
+        'Starred': 'Favoritos',
+        'Archive': 'Arquivo'
+    };
+    
+    const translatedLabels = folderData.map(item => 
+        folderTranslations[item.folder] || item.folder
+    );
+    
+    new Chart(emailsByFolderCtx, {
+        type: 'bar',
+        data: {
+            labels: translatedLabels,
+            datasets: [{
+                label: 'Quantidade de E-mails',
+                data: folderData.map(item => item.count),
+                backgroundColor: [
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(40, 167, 69, 0.7)',
+                    'rgba(255, 193, 7, 0.7)',
+                    'rgba(220, 53, 69, 0.7)',
+                    'rgba(108, 117, 125, 0.7)',
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(255, 159, 64, 0.7)',
+                    'rgba(75, 192, 192, 0.7)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para criar gráficos padrão em caso de erro de carregamento
+function createDefaultCharts() {
+    createEmailTypeChart(null);
+    createEmailVolumeChart(null);
+    createTopSendersChart(null);
+    createEmailsByFolderChart(null);
+}
+
+function truncateText(text, maxLength) {
+    if (text && text.length > maxLength) {
+        return text.substring(0, maxLength) + '...';
+    }
+    return text || '';
+}
+
+// Sincronização Automática de Emails
+document.addEventListener('DOMContentLoaded', function() {
+    // Mapa para armazenar os intervalos ativos
+    const activeIntervals = new Map();
+    
+    // Função para verificar novos emails
+    function checkNewEmails(accountId) {
+        // Exibir indicador visual de verificação
+        const button = document.getElementById(`auto-sync-${accountId}`);
+        if (button) {
+            button.classList.add('checking');
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+        
+        fetch(`/check_new_emails/${accountId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Remover a classe de verificação
+                if (button) {
+                    button.classList.remove('checking');
+                    button.innerHTML = '<i class="fas fa-robot"></i>';
+                }
+                
+                // Se encontrou novos emails
+                if (data.success && data.has_new_emails) {
+                    // Atualizar o status de sincronização
+                    const statusCell = document.getElementById(`sync-status-${accountId}`);
+                    if (statusCell) {
+                        statusCell.innerHTML = data.last_synced;
+                    }
+                    
+                    // Preparar mensagem com detalhes das pastas atualizadas
+                    let detailMessage = '';
+                    if (data.inbox_updated && data.sent_updated) {
+                        detailMessage = 'Novos emails encontrados na Caixa de Entrada e na pasta Enviados!';
+                    } else if (data.inbox_updated) {
+                        detailMessage = 'Novos emails encontrados na Caixa de Entrada!';
+                    } else if (data.sent_updated) {
+                        detailMessage = 'Novos emails enviados foram sincronizados!';
+                    } else {
+                        detailMessage = 'Novos emails encontrados e sincronizados automaticamente!';
+                    }
+                    
+                    // Notificar o usuário
+                    const toastDiv = document.createElement('div');
+                    toastDiv.className = 'toast align-items-center text-white bg-success border-0';
+                    toastDiv.setAttribute('role', 'alert');
+                    toastDiv.setAttribute('aria-live', 'assertive');
+                    toastDiv.setAttribute('aria-atomic', 'true');
+                    toastDiv.innerHTML = `
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fas fa-check-circle me-2"></i>
+                                ${detailMessage}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                        </div>
+                    `;
+                    
+                    // Adicionar ao container de toasts
+                    const toastContainer = document.getElementById('toast-container');
+                    if (!toastContainer) {
+                        const container = document.createElement('div');
+                        container.id = 'toast-container';
+                        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                        document.body.appendChild(container);
+                    }
+                    document.getElementById('toast-container').appendChild(toastDiv);
+                    
+                    // Inicializar e mostrar o toast
+                    const toast = new bootstrap.Toast(toastDiv);
+                    toast.show();
+                    
+                    // Trigger reload para atualizar os gráficos (opcional)
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao verificar novos emails:', error);
+                if (button) {
+                    button.classList.remove('checking');
+                    button.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                    
+                    // Reiniciar após erro
+                    setTimeout(() => {
+                        button.innerHTML = '<i class="fas fa-robot"></i>';
+                    }, 3000);
+                }
+            });
+    }
+    
+    // Inicializar os botões de sincronização automática
+    document.querySelectorAll('.auto-sync-toggle').forEach(button => {
+        const accountId = button.getAttribute('data-account-id');
+        
+        button.addEventListener('click', function() {
+            // Se já existe um intervalo ativo para esta conta, pare
+            if (activeIntervals.has(accountId)) {
+                clearInterval(activeIntervals.get(accountId));
+                activeIntervals.delete(accountId);
+                
+                // Atualizar visual do botão
+                button.classList.remove('btn-success');
+                button.classList.add('btn-outline-success');
+                button.title = 'Iniciar Sincronização Automática';
+                
+                // Notificar o usuário
+                const toastDiv = document.createElement('div');
+                toastDiv.className = 'toast align-items-center text-white bg-secondary border-0';
+                toastDiv.setAttribute('role', 'alert');
+                toastDiv.setAttribute('aria-live', 'assertive');
+                toastDiv.setAttribute('aria-atomic', 'true');
+                toastDiv.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas fa-power-off me-2"></i>
+                            Sincronização automática desativada.
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                    </div>
+                `;
+                
+                // Adicionar ao container de toasts
+                const toastContainer = document.getElementById('toast-container') || (() => {
+                    const container = document.createElement('div');
+                    container.id = 'toast-container';
+                    container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                    document.body.appendChild(container);
+                    return container;
+                })();
+                toastContainer.appendChild(toastDiv);
+                
+                // Inicializar e mostrar o toast
+                const toast = new bootstrap.Toast(toastDiv);
+                toast.show();
+            } else {
+                // Iniciar verificação imediata
+                checkNewEmails(accountId);
+                
+                // Configurar sincronização automática a cada 2 minutos
+                const interval = setInterval(() => {
+                    checkNewEmails(accountId);
+                }, 120000); // 2 minutos
+                
+                // Armazenar o ID do intervalo
+                activeIntervals.set(accountId, interval);
+                
+                // Atualizar visual do botão
+                button.classList.remove('btn-outline-success');
+                button.classList.add('btn-success');
+                button.title = 'Parar Sincronização Automática';
+                
+                // Notificar o usuário
+                const toastDiv = document.createElement('div');
+                toastDiv.className = 'toast align-items-center text-white bg-success border-0';
+                toastDiv.setAttribute('role', 'alert');
+                toastDiv.setAttribute('aria-live', 'assertive');
+                toastDiv.setAttribute('aria-atomic', 'true');
+                toastDiv.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas fa-robot me-2"></i>
+                            Sincronização automática ativada. Verificando a cada 2 minutos.
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                    </div>
+                `;
+                
+                // Adicionar ao container de toasts
+                const toastContainer = document.getElementById('toast-container') || (() => {
+                    const container = document.createElement('div');
+                    container.id = 'toast-container';
+                    container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                    document.body.appendChild(container);
+                    return container;
+                })();
+                toastContainer.appendChild(toastDiv);
+                
+                // Inicializar e mostrar o toast
+                const toast = new bootstrap.Toast(toastDiv);
+                toast.show();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% block modals %}
+<!-- Modal para Excluir Conta de Email -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteAccountModalLabel">Excluir Conta de Email</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Selecione a conta de email que deseja excluir:</p>
+                <form id="deleteAccountForm" action="{{ url_for('delete_email_account') }}" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <select class="form-select" name="account_id" required>
+                            <option value="">Selecione uma conta...</option>
+                            {% for account in email_accounts %}
+                            <option value="{{ account.id }}">{{ account.email_address }} ({{ account.provider|upper }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> Esta ação excluirá permanentemente a conta e todos os emails associados. Esta ação não pode ser desfeita.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="deleteAccountForm" class="btn btn-danger">Excluir Conta</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

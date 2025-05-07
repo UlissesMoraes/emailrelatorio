@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report.name }} - Email Analyzer{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-file-alt me-2"></i>{{ report.name }}</h1>
+    <div class="btn-group">
+        <a href="{{ url_for('export_report', report_id=report.id, format='pdf') }}" class="btn btn-primary">
+            <i class="far fa-file-pdf me-2"></i>Export PDF
+        </a>
+        <a href="{{ url_for('export_report', report_id=report.id, format='csv') }}" class="btn btn-secondary">
+            <i class="far fa-file-csv me-2"></i>Export CSV
+        </a>
+    </div>
+</div>
+
+<!-- Report Info Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Report Information</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Type:</strong> {{ report.type | capitalize }}</p>
+                <p><strong>Created:</strong> {{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p><strong>Date Range:</strong> 
+                    {% if report.date_range_start and report.date_range_end %}
+                        {{ report.date_range_start.strftime('%Y-%m-%d') }} to {{ report.date_range_end.strftime('%Y-%m-%d') }}
+                    {% elif report.date_range_start %}
+                        From {{ report.date_range_start.strftime('%Y-%m-%d') }}
+                    {% elif report.date_range_end %}
+                        Until {{ report.date_range_end.strftime('%Y-%m-%d') }}
+                    {% else %}
+                        All time
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                {% if report.filters %}
+                    {% set filters = report.filters|tojson|fromjson %}
+                    <p><strong>Filters:</strong></p>
+                    <ul>
+                        {% if filters.email_account_id %}
+                            <li>Specific email account</li>
+                        {% else %}
+                            <li>All email accounts</li>
+                        {% endif %}
+                        
+                        {% if filters.include_sent and filters.include_received %}
+                            <li>Sent and received emails</li>
+                        {% elif filters.include_sent %}
+                            <li>Only sent emails</li>
+                        {% elif filters.include_received %}
+                            <li>Only received emails</li>
+                        {% endif %}
+                        
+                        {% if filters.search_term %}
+                            <li>Search term: "{{ filters.search_term }}"</li>
+                        {% endif %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Content Based on Type -->
+{% if report.type == 'summary' %}
+    <!-- Summary Report -->
+    {% if 'error' in report_data %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>Error generating report: {{ report_data.error }}
+        </div>
+    {% else %}
+        <!-- Overall Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h3 class="display-4">{{ report_data.total_emails }}</h3>
+                        <p class="text-muted">Total Emails</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h3 class="display-4">{{ report_data.sent_count }}</h3>
+                        <p class="text-muted">Sent Emails</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h3 class="display-4">{{ report_data.received_count }}</h3>
+                        <p class="text-muted">Received Emails</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations Row -->
+        <div class="row mb-4">
+            <!-- Email Distribution -->
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Email Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="emailDistributionChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Email Volume -->
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Email Volume by Date</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="emailVolumeChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top Senders & Recipients -->
+        <div class="row mb-4">
+            <!-- Top Senders -->
+            {% if report_data.top_senders %}
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Top Email Senders</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Sender</th>
+                                        <th>Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for sender in report_data.top_senders %}
+                                    <tr>
+                                        <td>{{ sender.sender }}</td>
+                                        <td>{{ sender.count }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Top Recipients -->
+            {% if report_data.top_recipients %}
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Top Email Recipients</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Recipient</th>
+                                        <th>Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for recipient in report_data.top_recipients %}
+                                    <tr>
+                                        <td>{{ recipient.recipient }}</td>
+                                        <td>{{ recipient.count }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Common Subjects -->
+        {% if report_data.common_subjects %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Common Email Subjects</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject in report_data.common_subjects %}
+                            <tr>
+                                <td>{{ subject.subject }}</td>
+                                <td>{{ subject.count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+{% elif report.type == 'detailed' %}
+    <!-- Detailed Report -->
+    {% if 'error' in report_data %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>Error generating report: {{ report_data.error }}
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Email List</h5>
+                    <span class="badge bg-primary">Total: {{ report_data.total }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if report_data.emails %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Subject</th>
+                                <th>Sender</th>
+                                <th>Recipients</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for email in report_data.emails %}
+                            <tr data-bs-toggle="collapse" data-bs-target="#email-details-{{ email.id }}" class="clickable">
+                                <td>{{ email.date }}</td>
+                                <td>
+                                    {% if email.type == 'Sent' %}
+                                    <span class="badge bg-primary">{{ email.type }}</span>
+                                    {% else %}
+                                    <span class="badge bg-info">{{ email.type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ email.subject }}</td>
+                                <td>{{ email.sender }}</td>
+                                <td>{{ email.recipients }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="5" class="p-0">
+                                    <div id="email-details-{{ email.id }}" class="collapse">
+                                        <div class="p-3 bg-dark">
+                                            <h6>Preview:</h6>
+                                            <div class="card card-body bg-secondary">
+                                                {{ email.body_preview }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center p-5">
+                    <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+                    <h4>No emails found</h4>
+                    <p class="text-muted">No emails match the current filters.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if report.type == 'summary' and not ('error' in report_data) %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sent vs Received distribution chart
+    const distributionCtx = document.getElementById('emailDistributionChart').getContext('2d');
+    new Chart(distributionCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Sent', 'Received'],
+            datasets: [{
+                data: [{{ report_data.sent_count }}, {{ report_data.received_count }}],
+                backgroundColor: ['#6f42c1', '#0dcaf0'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    // Email volume by date chart
+    {% if report_data.by_date %}
+    const volumeCtx = document.getElementById('emailVolumeChart').getContext('2d');
+    new Chart(volumeCtx, {
+        type: 'line',
+        data: {
+            labels: [
+                {% for item in report_data.by_date %}
+                    '{{ item.date }}',
+                {% endfor %}
+            ],
+            datasets: [{
+                label: 'Email Count',
+                data: [
+                    {% for item in report_data.by_date %}
+                        {{ item.count }},
+                    {% endfor %}
+                ],
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endif %}
+{% endblock %}

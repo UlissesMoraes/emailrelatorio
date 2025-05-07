@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Criar Relatório - Gerenciador de Inventário{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0"><i class="fas fa-file-alt me-2"></i>Criar Novo Relatório</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_report') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nome do Relatório</label>
+                        {{ form.name(class="form-control", id="name", placeholder="Digite um nome para este relatório") }}
+                        {% for error in form.name.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="report_type" class="form-label">Tipo de Relatório</label>
+                        {{ form.report_type(class="form-select", id="report_type") }}
+                        <div class="form-text">
+                            <small>
+                                <strong>Relatório Resumido:</strong> Inclui estatísticas, gráficos e visão geral quantitativa dos seus e-mails (sem mostrar conteúdo dos e-mails).<br>
+                                <strong>Relatório Detalhado:</strong> Inclui conteúdo completo de cada e-mail mostrando assunto, remetente, destinatário e corpo da mensagem de todos os e-mails que correspondem aos seus critérios.
+                            </small>
+                        </div>
+                        {% for error in form.report_type.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email_account" class="form-label">Conta de E-mail</label>
+                        {{ form.email_account(class="form-select", id="email_account") }}
+                        <div class="form-text">Selecione uma conta ou deixe em branco para incluir todas as contas.</div>
+                        {% for error in form.email_account.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3" id="folder-section">
+                        <label for="email_folder" class="form-label">Pasta de E-mail</label>
+                        <div class="d-flex align-items-center">
+                            {{ form.email_folder(class="form-select", id="email_folder") }}
+                            <div id="folder-loading" class="ms-2 d-none">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Carregando...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">Selecione uma pasta específica para filtrar os e-mails.</div>
+                        {% for error in form.email_folder.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="date_range_start" class="form-label">Data Inicial</label>
+                            {{ form.date_range_start(class="form-control", id="date_range_start", type="date") }}
+                            {% for error in form.date_range_start.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="date_range_end" class="form-label">Data Final</label>
+                            {{ form.date_range_end(class="form-control", id="date_range_end", type="date") }}
+                            {% for error in form.date_range_end.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">Deixe as datas em branco para incluir todos os dados disponíveis.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de E-mail</label>
+                        <div class="form-check">
+                            {{ form.include_sent(class="form-check-input", id="include_sent") }}
+                            <label class="form-check-label" for="include_sent">Incluir E-mails Enviados</label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.include_received(class="form-check-input", id="include_received") }}
+                            <label class="form-check-label" for="include_received">Incluir E-mails Recebidos</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="search_term" class="form-label">Termo de Busca (Opcional)</label>
+                        {{ form.search_term(class="form-control", id="search_term", placeholder="Digite palavras-chave para filtrar e-mails") }}
+                        <div class="form-text">Filtre e-mails que contenham palavras específicas no assunto, corpo ou campos de remetente/destinatário.</div>
+                        {% for error in form.search_term.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-4" id="group-by-section">
+                        <label for="group_by" class="form-label">Opções de Agrupamento (para Relatórios Detalhados)</label>
+                        {{ form.group_by(class="form-select", id="group_by") }}
+                        <div class="form-text">
+                            <small>
+                                <strong>Agrupar por Remetente:</strong> Emails serão organizados por quem os enviou.<br>
+                                <strong>Agrupar por Destinatário:</strong> Emails serão organizados por quem os recebeu.<br>
+                                <strong>Sem Agrupamento:</strong> Emails serão listados cronologicamente.
+                            </small>
+                        </div>
+                        {% for error in form.group_by.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('reports') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar para Relatórios
+                        </a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const emailAccountSelect = document.getElementById('email_account');
+        const folderSelect = document.getElementById('email_folder');
+        const folderSection = document.getElementById('folder-section');
+        const reportTypeSelect = document.getElementById('report_type');
+        const groupBySection = document.getElementById('group-by-section');
+        
+        // Inicialmente esconde a seção de pasta se nenhuma conta estiver selecionada
+        if (emailAccountSelect.value === '') {
+            folderSection.style.display = 'none';
+        }
+        
+        // Inicialmente esconde ou mostra a seção de agrupamento dependendo do tipo de relatório
+        function toggleGroupBySection() {
+            if (reportTypeSelect.value === 'detailed') {
+                groupBySection.style.display = 'block';
+            } else {
+                groupBySection.style.display = 'none';
+            }
+        }
+        
+        // Executa uma vez na inicialização
+        toggleGroupBySection();
+        
+        // Atualiza quando o tipo de relatório muda
+        reportTypeSelect.addEventListener('change', toggleGroupBySection);
+        
+        // Atualiza as pastas quando a conta muda
+        emailAccountSelect.addEventListener('change', function() {
+            const accountId = emailAccountSelect.value;
+            const folderLoading = document.getElementById('folder-loading');
+            
+            if (accountId === '') {
+                folderSection.style.display = 'none';
+                return;
+            }
+            
+            folderSection.style.display = 'block';
+            
+            // Mostrar indicador de carregamento
+            folderLoading.classList.remove('d-none');
+            
+            // Desabilitar o select de pastas durante o carregamento
+            folderSelect.disabled = true;
+            
+            // Limpa as opções atuais e mostra mensagem de carregamento
+            folderSelect.innerHTML = '<option value="">Carregando pastas em tempo real...</option>';
+            
+            // Faz uma requisição AJAX para obter as pastas da conta selecionada
+            fetch(`{{ url_for('create_report') }}?get_folders=true&account_id=${accountId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Limpa as opções atuais
+                    folderSelect.innerHTML = '';
+                    
+                    // Adiciona as novas opções
+                    data.folders.forEach(folder => {
+                        const option = document.createElement('option');
+                        option.value = folder.path;
+                        option.textContent = folder.name;
+                        folderSelect.appendChild(option);
+                    });
+                    
+                    // Esconder indicador de carregamento
+                    folderLoading.classList.add('d-none');
+                    
+                    // Habilitar o select de pastas
+                    folderSelect.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar pastas:', error);
+                    // Adiciona opção padrão em caso de erro
+                    folderSelect.innerHTML = '<option value="INBOX">Caixa de Entrada</option>';
+                    
+                    // Esconder indicador de carregamento
+                    folderLoading.classList.add('d-none');
+                    
+                    // Habilitar o select de pastas
+                    folderSelect.disabled = false;
+                });
+        });
+        
+        // Executa uma vez na inicialização para configurar corretamente
+        if (emailAccountSelect.value !== '') {
+            emailAccountSelect.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+{% endblock %}

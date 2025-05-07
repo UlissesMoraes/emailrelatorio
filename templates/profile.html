@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Perfil - Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="profile-card">
+                <div class="card-header">
+                    <h2>Editar Perfil</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-4">
+                            <div class="profile-image-container">
+                                {% if current_user.profile_image %}
+                                <img src="{{ url_for('static', filename=current_user.profile_image) }}?v={{ now.timestamp()|int }}" alt="Foto de Perfil" class="img-fluid rounded-circle profile-image">
+                                {% else %}
+                                <div class="default-profile-image rounded-circle">
+                                    <span>{{ current_user.username[:1].upper() }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <form method="post" enctype="multipart/form-data">
+                                {{ form.hidden_tag() }}
+                                
+                                <div class="form-group mb-3">
+                                    {{ form.username.label(class="form-label") }}
+                                    {{ form.username(class="form-control", style="background-color: #fff; color: #333; font-weight: 500;") }}
+                                    {% for error in form.username.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    {{ form.email.label(class="form-label") }}
+                                    {{ form.email(class="form-control", style="background-color: #fff; color: #333; font-weight: 500;") }}
+                                    {% for error in form.email.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    {{ form.profile_image.label(class="form-label") }}
+                                    {{ form.profile_image(class="form-control", style="background-color: #fff; color: #333;") }}
+                                    <div class="small text-muted mt-1">Recomendado: Imagem quadrada JPG/PNG</div>
+                                    {% for error in form.profile_image.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="mt-4 mb-2">
+                                    <h5 class="password-section-title">Alterar Senha</h5>
+                                    <div class="small text-muted">Preencha apenas se desejar alterar sua senha</div>
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    {{ form.current_password.label(class="form-label") }}
+                                    {{ form.current_password(class="form-control", style="background-color: #fff; color: #333; font-weight: 500;") }}
+                                    {% for error in form.current_password.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    {{ form.new_password.label(class="form-label") }}
+                                    {{ form.new_password(class="form-control", style="background-color: #fff; color: #333; font-weight: 500;") }}
+                                    <div class="small text-muted mt-1">Mínimo 8 caracteres</div>
+                                    {% for error in form.new_password.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    {{ form.confirm_password.label(class="form-label") }}
+                                    {{ form.confirm_password(class="form-control", style="background-color: #fff; color: #333; font-weight: 500;") }}
+                                    {% for error in form.confirm_password.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-md-2">Cancelar</a>
+                                    {{ form.submit(class="btn btn-primary") }}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_styles %}
+<style>
+    .profile-card {
+        background-color: #fff;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        margin-bottom: 30px;
+        position: relative;
+    }
+    
+    .profile-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(90deg, #4f46e5, #b224ef);
+    }
+    
+    .card-header {
+        background-color: #f8f9fa;
+        padding: 20px 25px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .card-header h2 {
+        color: #4f46e5;
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .card-body {
+        padding: 25px;
+        background-color: #fff;
+    }
+    
+    .profile-image-container {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 20px;
+        position: relative;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+    }
+    
+    .profile-image {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border: 3px solid #fff;
+    }
+    
+    .default-profile-image {
+        width: 150px;
+        height: 150px;
+        background: linear-gradient(135deg, #4f46e5 0%, #b224ef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        color: white;
+        border: 3px solid #fff;
+    }
+    
+    .form-label {
+        color: #333;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+    
+    .form-control {
+        border-radius: 10px;
+        padding: 12px 15px;
+        font-size: 1rem;
+        border: 1px solid #ced4da;
+        transition: all 0.3s ease;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .form-control:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25);
+        transform: translateY(-2px);
+    }
+    
+    .password-section-title {
+        color: #4f46e5;
+        font-weight: 600;
+        padding-bottom: 8px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(90deg, #4f46e5, #6366f1);
+        border: none;
+        padding: 10px 25px;
+        font-weight: 600;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(90deg, #4338ca, #4f46e5);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+    }
+    
+    .btn-secondary {
+        background-color: #f8f9fa;
+        color: #212529;
+        border: 1px solid #ced4da;
+        padding: 10px 25px;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #e9ecef;
+        transform: translateY(-2px);
+    }
+    
+    /* Estilos especiais para cada campo do formulário */
+    #username, #email {
+        font-weight: 500;
+        background-color: #fff;
+        border-left: 4px solid #4f46e5;
+    }
+    
+    #current_password, #new_password, #confirm_password {
+        font-family: monospace;
+        letter-spacing: 0.1em;
+        background-color: #fff;
+        border-left: 4px solid #9333ea;
+    }
+    
+    #profile_image {
+        background-color: #fff;
+        border-left: 4px solid #4f46e5;
+    }
+</style>
+{% endblock %}

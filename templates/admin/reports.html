@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Todos os Relatórios | Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Gerenciar Relatórios</h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Início</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Administração</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Relatórios</li>
+            </ol>
+        </nav>
+    </div>
+    
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Todos os Relatórios</h5>
+            <span class="badge bg-primary">{{ reports|length }} relatórios</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuário</th>
+                            <th>Nome do Relatório</th>
+                            <th>Tipo</th>
+                            <th>Data de Criação</th>
+                            <th>Última Geração</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>{{ report.id }}</td>
+                            <td>{{ report.user.username }}</td>
+                            <td>{{ report.name }}</td>
+                            <td>
+                                {% if report.type == 'summary' %}
+                                <span class="badge bg-info">Resumido</span>
+                                {% elif report.type == 'detailed' %}
+                                <span class="badge bg-primary">Detalhado</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ report.type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ report.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>{{ report.last_generated.strftime('%d/%m/%Y %H:%M') if report.last_generated else 'N/A' }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> Ver
+                                    </a>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-download"></i> Exportar
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='pdf') }}">
+                                                    <i class="fas fa-file-pdf me-2 text-danger"></i> PDF
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='csv') }}">
+                                                    <i class="fas fa-file-csv me-2 text-success"></i> CSV
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteReportModal{{ report.id }}">
+                                        <i class="fas fa-trash"></i> Excluir
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% for report in reports %}
+<!-- Delete Report Modal -->
+<div class="modal fade" id="deleteReportModal{{ report.id }}" tabindex="-1" aria-labelledby="deleteReportModalLabel{{ report.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteReportModalLabel{{ report.id }}">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o relatório <strong>{{ report.name }}</strong> do usuário <strong>{{ report.user.username }}</strong>?</p>
+                <p class="text-danger">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('delete_report', report_id=report.id) }}" method="post">
+                    {{ form.csrf_token }}
+                    {{ form.report_id(value=report.id) }}
+                    <input type="hidden" name="origem" value="admin_reports">
+                    {{ form.submit(class="btn btn-danger", value="Excluir Permanentemente") }}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

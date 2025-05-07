@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Acesso Negado | Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="error-page mt-5">
+                <h1 class="display-1 text-danger">403</h1>
+                <h2 class="mb-4">Acesso Negado</h2>
+                <p class="lead mb-5">Você não tem permissão para acessar esta página. Esta área é restrita a administradores do sistema.</p>
+                
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                    <i class="fas fa-home me-2"></i> Voltar para o Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

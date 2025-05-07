@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Relatórios - Login</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            background: linear-gradient(135deg, #0f172a, #4f46e5);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Animated background elements */
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(45deg, rgba(79, 70, 229, 0.3), rgba(59, 130, 246, 0.3));
+            filter: blur(80px);
+            z-index: -1;
+            animation: floatAnimation 12s infinite ease-in-out;
+        }
+        
+        .bg-circle:nth-child(1) {
+            width: 400px;
+            height: 400px;
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+        
+        .bg-circle:nth-child(2) {
+            width: 500px;
+            height: 500px;
+            bottom: -150px;
+            right: -100px;
+            background: linear-gradient(45deg, rgba(16, 185, 129, 0.2), rgba(79, 70, 229, 0.2));
+            animation-delay: -3s;
+        }
+        
+        .bg-circle:nth-child(3) {
+            width: 300px;
+            height: 300px;
+            top: 50%;
+            left: 30%;
+            background: linear-gradient(45deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.15));
+            animation-delay: -6s;
+        }
+        
+        @keyframes floatAnimation {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                transform: translateY(-30px) scale(1.05);
+            }
+        }
+        
+        .login-container {
+            max-width: 1200px;
+            margin: auto;
+            width: 100%;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .logo-section {
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            background-color: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px 0 0 24px;
+            padding: 3rem 2rem;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .logo-section h1 {
+            font-size: 2.7rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .login-card {
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0 24px 24px 0;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        
+        .feature-item {
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-item:hover {
+            transform: translateX(10px);
+        }
+        
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-right: 1.25rem;
+            background: linear-gradient(45deg, rgba(79, 70, 229, 0.8), rgba(59, 130, 246, 0.8));
+            width: 54px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .feature-icon::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(79, 70, 229, 0.5), rgba(59, 130, 246, 0.5));
+            top: 0;
+            left: -100%;
+            transition: all 0.5s ease;
+        }
+        
+        .feature-item:hover .feature-icon::after {
+            left: 0;
+        }
+        
+        .auth-tabs {
+            background-color: transparent;
+            border-bottom: 0;
+            margin-bottom: 2rem;
+        }
+        
+        .auth-tabs .nav-link {
+            font-weight: 600;
+            padding: 0.85rem 1.5rem;
+            border: none;
+            color: #64748b;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+        
+        .auth-tabs .nav-link::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-color), rgba(79, 70, 229, 0.5));
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+            z-index: -1;
+        }
+        
+        .auth-tabs .nav-link:hover::before {
+            transform: scaleX(0.5);
+            transform-origin: left;
+        }
+        
+        .auth-tabs .nav-link.active {
+            color: var(--accent-color);
+            background-color: transparent;
+            border-bottom: none;
+        }
+        
+        .auth-tabs .nav-link.active::before {
+            transform: scaleX(1);
+        }
+        
+        .form-control, .form-select, .input-group-text {
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            font-size: 1rem;
+        }
+        
+        .input-group-text {
+            background: linear-gradient(45deg, rgba(79, 70, 229, 0.1), rgba(59, 130, 246, 0.1));
+            border-right: none;
+            color: var(--accent-color);
+        }
+        
+        .input-group .form-control {
+            border-left: none;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.15);
+            border-color: rgba(79, 70, 229, 0.3);
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, var(--accent-color), rgba(79, 70, 229, 0.8));
+            border: none;
+            padding: 0.7rem 1.5rem;
+            font-weight: 600;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+            background: linear-gradient(90deg, var(--accent-color), rgba(99, 102, 241, 0.9));
+        }
+        
+        .card-footer {
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            background-color: rgba(255, 255, 255, 0.5) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        @media (max-width: 991.98px) {
+            .logo-section {
+                border-radius: 24px 24px 0 0;
+                padding: 2rem;
+            }
+            
+            .login-card {
+                border-radius: 0 0 24px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated background elements -->
+    <div class="bg-circle"></div>
+    <div class="bg-circle"></div>
+    <div class="bg-circle"></div>
+    
+    <div class="container login-container py-5">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="row g-0">
+            <!-- Left Side - Logo and Features -->
+            <div class="col-lg-5 logo-section">
+                <div class="mb-5 text-center">
+                    <i class="fas fa-layer-group fa-4x mb-3"></i>
+                    <h1>Gerenciador de Relatórios</h1>
+                    <p class="lead mb-0">Sistema integrado de análise de e-mails e geração de relatórios</p>
+                </div>
+                
+                <div class="mt-5">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Relatórios Detalhados</h5>
+                            <p class="mb-0 text-white-50">Análise de dados com visualizações avançadas</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Integração com E-mail</h5>
+                            <p class="mb-0 text-white-50">Análise automática de comunicações</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-1">Segurança Garantida</h5>
+                            <p class="mb-0 text-white-50">Seus dados protegidos com criptografia avançada</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Side - Login Form -->
+            <div class="col-lg-7">
+                <div class="card login-card h-100">
+                    <div class="card-body p-4 p-md-5">
+                        <ul class="nav nav-tabs auth-tabs mb-4" id="auth-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {% if active_tab != 'register' %}active{% endif %}" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-tab-pane" type="button" role="tab" aria-controls="login-tab-pane" aria-selected="true">
+                                    <i class="fas fa-sign-in-alt me-2"></i>Entrar
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {% if active_tab == 'register' %}active{% endif %}" id="register-tab" data-bs-toggle="tab" data-bs-target="#register-tab-pane" type="button" role="tab" aria-controls="register-tab-pane" aria-selected="false">
+                                    <i class="fas fa-user-plus me-2"></i>Cadastrar
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="auth-tab-content">
+                            <!-- Login Tab -->
+                            <div class="tab-pane fade {% if active_tab != 'register' %}show active{% endif %}" id="login-tab-pane" role="tabpanel" aria-labelledby="login-tab" tabindex="0">
+                                <h3 class="mb-4 fw-bold">Acessar Sistema</h3>
+                                <form method="POST" action="{{ url_for('login') }}">
+                                    {{ form.hidden_tag() }}
+                                    
+                                    <div class="mb-4">
+                                        <label for="email" class="form-label">E-mail</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                            {{ form.email(class="form-control", id="email", placeholder="Digite seu e-mail") }}
+                                        </div>
+                                        {% for error in form.email.errors %}
+                                        <div class="text-danger mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label for="password" class="form-label">Senha</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                            {{ form.password(class="form-control", id="password", placeholder="Digite sua senha") }}
+                                        </div>
+                                        {% for error in form.password.errors %}
+                                        <div class="text-danger mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mb-4 form-check">
+                                        {{ form.remember_me(class="form-check-input", id="remember_me") }}
+                                        <label class="form-check-label" for="remember_me">Lembrar-me</label>
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        {{ form.submit(class="btn btn-primary btn-lg", value="Entrar") }}
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <!-- Register Tab -->
+                            <div class="tab-pane fade {% if active_tab == 'register' %}show active{% endif %}" id="register-tab-pane" role="tabpanel" aria-labelledby="register-tab" tabindex="0">
+                                <h3 class="mb-4 fw-bold">Criar Conta</h3>
+                                <form method="POST" action="{{ url_for('register') }}">
+                                    {{ register_form.hidden_tag() }}
+                                    
+                                    <div class="mb-3">
+                                        <label for="username" class="form-label">Nome de Usuário</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                            {{ register_form.username(class="form-control", id="username", placeholder="Escolha um nome de usuário") }}
+                                        </div>
+                                        {% for error in register_form.username.errors %}
+                                        <div class="text-danger mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="reg_email" class="form-label">E-mail</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                            {{ register_form.email(class="form-control", id="reg_email", placeholder="Digite seu e-mail") }}
+                                        </div>
+                                        {% for error in register_form.email.errors %}
+                                        <div class="text-danger mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="reg_password" class="form-label">Senha</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                            {{ register_form.password(class="form-control", id="reg_password", placeholder="Crie uma senha") }}
+                                        </div>
+                                        {% for error in register_form.password.errors %}
+                                        <div class="text-danger mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label for="password2" class="form-label">Confirmar Senha</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                            {{ register_form.password2(class="form-control", id="password2", placeholder="Confirme sua senha") }}
+                                        </div>
+                                        {% for error in register_form.password2.errors %}
+                                        <div class="text-danger mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        {{ register_form.submit(class="btn btn-primary btn-lg", value="Cadastrar") }}
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center py-3 bg-light">
+                        <p class="text-muted mb-0">
+                            <span class="fw-bold text-primary" style="font-size: 1.1rem;">Prime Automate</span>
+                        </p>
+                        <p class="text-muted mb-0">&copy; {{ now.year }} Sistema de Gerenciamento de Relatórios</p>
+                        <p class="text-muted mt-2 mb-0" style="font-size: 0.9rem;">
+                            <i class="fas fa-code me-1"></i> Desenvolvido por 
+                            <span class="fw-bold text-primary">Ulisses Moraes</span> e 
+                            <span class="fw-bold text-primary">Itamar Silva</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

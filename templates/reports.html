@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios - Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-chart-bar me-2"></i>Relatórios</h1>
+    <a href="{{ url_for('create_report') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>Criar Novo Relatório
+    </a>
+</div>
+
+<!-- Reports Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Seus Relatórios</h5>
+    </div>
+    <div class="card-body">
+        {% if reports %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Tipo</th>
+                        <th>Período</th>
+                        <th>Criado em</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.name }}</td>
+                        <td>
+                            {% if report.type == 'summary' %}
+                                Resumido
+                            {% elif report.type == 'detailed' %}
+                                Detalhado
+                            {% else %}
+                                {{ report.type | capitalize }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if report.date_range_start and report.date_range_end %}
+                                {{ report.date_range_start.strftime('%d/%m/%Y') }} até {{ report.date_range_end.strftime('%d/%m/%Y') }}
+                            {% elif report.date_range_start %}
+                                A partir de {{ report.date_range_start.strftime('%d/%m/%Y') }}
+                            {% elif report.date_range_end %}
+                                Até {{ report.date_range_end.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                Todo o período
+                            {% endif %}
+                        </td>
+                        <td>{{ report.created_at.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <div class="d-flex">
+                                <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-primary me-1">
+                                    <i class="fas fa-eye me-1"></i>Visualizar
+                                </a>
+                                <div class="btn-group me-1">
+                                    <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-file-export me-1"></i>Exportar
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='pdf') }}">
+                                            <i class="far fa-file-pdf me-2"></i>Exportar como PDF
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='csv') }}">
+                                            <i class="far fa-file-csv me-2"></i>Exportar como CSV
+                                        </a></li>
+                                    </ul>
+                                </div>
+                                <form action="{{ url_for('delete_report', report_id=report.id) }}" method="post" 
+                                      onsubmit="return confirm('Tem certeza que deseja excluir este relatório? Esta ação não pode ser desfeita.');">
+                                    {{ form.csrf_token }}
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash-alt me-1"></i>Excluir
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center p-5">
+            <div class="mb-4">
+                <i class="fas fa-chart-area fa-4x text-muted"></i>
+            </div>
+            <h4>Nenhum relatório ainda</h4>
+            <p class="text-muted mb-4">Crie seu primeiro relatório para analisar seus dados de e-mail.</p>
+            <a href="{{ url_for('create_report') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Criar Novo Relatório
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

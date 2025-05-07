@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Email Analyzer - Email Analysis and Reporting{% endblock %}
+
+{% block content %}
+<div class="row align-items-center py-5">
+    <div class="col-lg-6">
+        <h1 class="display-4 fw-bold mb-4">Comprehensive Email Analysis</h1>
+        <p class="lead mb-4">
+            Extract valuable insights from your emails with our powerful analytics platform. Generate comprehensive reports to better understand your communication patterns.
+        </p>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-4 me-md-2">
+                <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+            </a>
+            {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4 me-md-2">
+                <i class="fas fa-sign-in-alt me-2"></i>Get Started
+            </a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-secondary btn-lg px-4">Register</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6 d-none d-lg-block">
+        <div class="text-center">
+            <svg width="500" height="400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="2" y1="7" x2="22" y2="7"></line>
+                <line x1="8" y1="3" x2="8" y2="7"></line>
+                <line x1="16" y1="3" x2="16" y2="7"></line>
+                <rect x="6" y="10" width="12" height="3"></rect>
+                <rect x="6" y="15" width="12" height="2"></rect>
+                <rect x="2" y="21" width="20" height="2"></rect>
+                <path d="M4 17l3.5 3.5L12 17"></path>
+                <path d="M20 17l-3.5 3.5L12 17"></path>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<hr class="my-5">
+
+<!-- Features Section -->
+<div class="row g-4 py-5">
+    <h2 class="text-center mb-5">Key Features</h2>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-envelope-open fa-3x mb-3 text-primary"></i>
+                <h4 class="card-title">Email Extraction</h4>
+                <p class="card-text">Connect to your email accounts securely and extract data including subjects, body content, and recipients.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-pie fa-3x mb-3 text-primary"></i>
+                <h4 class="card-title">Comprehensive Reports</h4>
+                <p class="card-text">Generate detailed reports with visualizations to analyze communication patterns and trends.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-file-export fa-3x mb-3 text-primary"></i>
+                <h4 class="card-title">Export Options</h4>
+                <p class="card-text">Export your reports in multiple formats including PDF and CSV for sharing or offline analysis.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-5">
+
+<!-- How It Works Section -->
+<div class="row py-5">
+    <h2 class="text-center mb-5">How It Works</h2>
+    
+    <div class="d-flex justify-content-center">
+        <ul class="timeline">
+            <li class="timeline-item">
+                <div class="timeline-badge bg-primary"><i class="fas fa-user-plus"></i></div>
+                <div class="timeline-content">
+                    <h4>1. Create an Account</h4>
+                    <p>Register for a new account or sign in if you already have one.</p>
+                </div>
+            </li>
+            <li class="timeline-item">
+                <div class="timeline-badge bg-primary"><i class="fas fa-link"></i></div>
+                <div class="timeline-content">
+                    <h4>2. Connect Email Accounts</h4>
+                    <p>Securely connect your email accounts (Gmail, Outlook, etc.).</p>
+                </div>
+            </li>
+            <li class="timeline-item">
+                <div class="timeline-badge bg-primary"><i class="fas fa-sync"></i></div>
+                <div class="timeline-content">
+                    <h4>3. Sync Your Emails</h4>
+                    <p>Our system will extract and analyze your email data.</p>
+                </div>
+            </li>
+            <li class="timeline-item">
+                <div class="timeline-badge bg-primary"><i class="fas fa-chart-line"></i></div>
+                <div class="timeline-content">
+                    <h4>4. Generate Reports</h4>
+                    <p>Create reports based on your needs and export them in your preferred format.</p>
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add animation to timeline when scrolling
+    const timelineItems = document.querySelectorAll('.timeline-item');
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animated');
+            }
+        });
+    }, { threshold: 0.5 });
+    
+    timelineItems.forEach(item => {
+        observer.observe(item);
+    });
+</script>
+{% endblock %}

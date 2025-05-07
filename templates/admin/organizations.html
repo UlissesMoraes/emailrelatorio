@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciamento de Organizações - Painel Administrativo{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5><i class="fas fa-building me-2"></i> Gerenciamento de Organizações</h5>
+            <a href="{{ url_for('admin_new_organization') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i> Nova Organização
+            </a>
+        </div>
+        <p class="text-muted">Gerencie as organizações/empresas cadastradas no sistema.</p>
+    </div>
+</div>
+
+{% if organizations %}
+<div class="card glassmorphism mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 60px">ID</th>
+                        <th style="width: 80px">Logo</th>
+                        <th>Nome</th>
+                        <th>Domínio</th>
+                        <th>Cor Primária</th>
+                        <th>Usuários</th>
+                        <th>Criada em</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for org in organizations %}
+                    <tr>
+                        <td>{{ org.id }}</td>
+                        <td>
+                            {% if org.logo %}
+                            <img src="{{ url_for('static', filename=org.logo) }}" alt="Logo {{ org.name }}" class="img-thumbnail" style="max-width: 60px; max-height: 60px;">
+                            {% else %}
+                            <div class="text-center">
+                                <i class="fas fa-building text-muted" style="font-size: 1.5rem;"></i>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ org.name }}</td>
+                        <td>{{ org.domain or '-' }}</td>
+                        <td>
+                            {% if org.primary_color %}
+                            <div class="d-flex align-items-center">
+                                <div style="width: 20px; height: 20px; background-color: {{ org.primary_color }}; border-radius: 4px; margin-right: 8px;"></div>
+                                <span>{{ org.primary_color }}</span>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">Padrão</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ org.users.count() }}</td>
+                        <td>{{ org.created_at.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('admin_edit_organization', org_id=org.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                    data-bs-toggle="modal" data-bs-target="#orgUsersModal{{ org.id }}">
+                                    <i class="fas fa-users"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card glassmorphism mb-4">
+    <div class="card-body text-center p-5">
+        <i class="fas fa-building fa-3x text-muted mb-3"></i>
+        <h5>Nenhuma organização cadastrada</h5>
+        <p class="text-muted">Clique no botão "Nova Organização" para adicionar a primeira empresa ao sistema.</p>
+        <a href="{{ url_for('admin_new_organization') }}" class="btn btn-primary mt-2">
+            <i class="fas fa-plus me-1"></i> Nova Organização
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modais para visualizar usuários por organização -->
+{% for org in organizations %}
+<div class="modal fade" id="orgUsersModal{{ org.id }}" tabindex="-1" aria-labelledby="orgUsersModalLabel{{ org.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content glassmorphism">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orgUsersModalLabel{{ org.id }}">
+                    <i class="fas fa-users me-2"></i>Usuários da Organização: {{ org.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {% if org.users.count() > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Admin</th>
+                                <th>Superadmin</th>
+                                <th>Cadastrado em</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in org.users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% if user.is_admin %}
+                                    <span class="badge bg-success">Sim</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Não</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_superadmin %}
+                                    <span class="badge bg-primary">Sim</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Não</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#moveUserModal{{ user.id }}">
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </button>
+                                        <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% if user.id != current_user.id %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ user.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center p-4">
+                    <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                    <h5>Nenhum usuário nesta organização</h5>
+                    <p class="text-muted">Esta organização ainda não possui usuários cadastrados.</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modais para mover usuários entre organizações e excluir usuários -->
+{% for org in organizations %}
+    {% for user in org.users %}
+        <!-- Modal para mover usuário -->
+        <div class="modal fade" id="moveUserModal{{ user.id }}" tabindex="-1" aria-labelledby="moveUserModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content glassmorphism">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="moveUserModalLabel{{ user.id }}">
+                            <i class="fas fa-exchange-alt me-2"></i>Mover Usuário para Outra Organização
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <form action="{{ url_for('admin_move_user') }}" method="post">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        <div class="modal-body">
+                            <p>Mover o usuário <strong>{{ user.username }}</strong> da organização atual (<strong>{{ org.name }}</strong>) para:</p>
+                            
+                            <div class="mb-3">
+                                <label for="organization_id" class="form-label">Nova Organização</label>
+                                <select class="form-select" id="organization_id" name="organization_id" required>
+                                    <option value="" selected disabled>Selecione uma organização</option>
+                                    {% for target_org in organizations %}
+                                        {% if target_org.id != org.id %}
+                                        <option value="{{ target_org.id }}">{{ target_org.name }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Ao mover o usuário, ele manterá seus dados pessoais e configurações, mas passará a estar associado à nova organização.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Mover Usuário</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal para excluir usuário -->
+        {% if user.id != current_user.id %}
+        <div class="modal fade" id="deleteUserModal{{ user.id }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content glassmorphism">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteUserModalLabel{{ user.id }}">
+                            <i class="fas fa-trash me-2"></i>Confirmar Exclusão
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <form action="{{ url_for('admin_delete_user', user_id=user.id) }}" method="post">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        <div class="modal-body">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>ATENÇÃO:</strong> Esta operação não pode ser desfeita!
+                            </div>
+                            
+                            <p>Você está prestes a excluir permanentemente o usuário <strong>{{ user.username }}</strong> da organização <strong>{{ org.name }}</strong>.</p>
+                            
+                            <p>Todos os dados associados a este usuário, incluindo:</p>
+                            <ul>
+                                <li>Contas de e-mail configuradas</li>
+                                <li>E-mails sincronizados</li>
+                                <li>Relatórios gerados</li>
+                                <li>Configurações e preferências</li>
+                            </ul>
+                            <p>Serão <strong>excluídos permanentemente</strong>.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-danger">Excluir Permanentemente</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,730 @@
+import imaplib
+import email
+import logging
+import os
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime, timedelta
+import re
+from bs4 import BeautifulSoup
+
+from app import db
+from models import EmailData
+
+logger = logging.getLogger(__name__)
+
+class EmailService:
+    def __init__(self, account):
+        self.account = account
+        self.provider = account.provider
+        self.email_address = account.email_address
+        
+        # Set up connection details based on provider
+        if self.provider == 'gmail':
+            self.imap_server = 'imap.gmail.com'
+            self.smtp_server = 'smtp.gmail.com'
+            self.smtp_port = 587
+        elif self.provider == 'outlook':
+            self.imap_server = 'outlook.office365.com'
+            self.smtp_server = 'smtp.office365.com'
+            self.smtp_port = 587
+        else:
+            raise ValueError(f"Unsupported email provider: {self.provider}")
+    
+    def get_folders(self, force_refresh=False):
+        """
+        List all available folders/mailboxes in the email account
+        Returns a list of dictionaries with name and path of each folder
+        
+        Args:
+            force_refresh: If True, always get fresh data instead of using cached
+        """
+        try:
+            # Verify if we have stored folders first and we're not forcing refresh
+            if not force_refresh and self.account.folders and len(self.account.folders) > 0:
+                logger.info(f"Usando pastas armazenadas para a conta {self.account.id}")
+                return self.account.folders
+                
+            # Connect to the IMAP server
+            mail = imaplib.IMAP4_SSL(self.imap_server)
+            
+            # Login with credentials
+            password = os.environ.get(f"EMAIL_PASSWORD_{self.account.id}", "")
+            if not password:
+                # Se não há senha disponível, retorna as pastas padrão para demonstração
+                default_folders = [
+                    {"name": "Caixa de Entrada", "path": "INBOX"},
+                    {"name": "Enviados", "path": "Sent"},
+                    {"name": "Rascunhos", "path": "Drafts"},
+                    {"name": "Lixeira", "path": "Trash"},
+                    {"name": "Spam", "path": "Junk"},
+                    {"name": "Importante", "path": "Important"},
+                    {"name": "Arquivados", "path": "Archive"},
+                    {"name": "Trabalho", "path": "Work"},
+                    {"name": "Pessoal", "path": "Personal"}
+                ]
+                
+                # Atualiza as pastas armazenadas no banco de dados
+                self.account.folders = default_folders
+                db.session.commit()
+                
+                logger.info(f"Usando pastas padrão para a conta {self.account.id}")
+                return default_folders
+            
+            mail.login(self.email_address, password)
+            
+            # Get the list of mailboxes/folders
+            status, mailboxes = mail.list()
+            
+            if status != 'OK':
+                raise Exception(f"Error getting folders: {status}")
+            
+            folders = []
+            
+            # Add default folders
+            default_folders = [
+                {"name": "Caixa de Entrada", "path": "INBOX"},
+                {"name": "Enviados", "path": "Sent"},
+                {"name": "Rascunhos", "path": "Drafts"},
+                {"name": "Lixeira", "path": "Trash"}
+            ]
+            
+            for folder in default_folders:
+                folders.append(folder)
+            
+            # Process mailboxes response
+            for mailbox in mailboxes:
+                if isinstance(mailbox, bytes):
+                    mailbox = mailbox.decode('utf-8')
+                
+                # Extract folder name
+                match = re.search(r'"([^"]*)"$', mailbox)
+                if match:
+                    folder_path = match.group(1)
+                    # Skip default folders we've already added
+                    if folder_path in ["INBOX", "Sent", "Drafts", "Trash"]:
+                        continue
+                    
+                    # Clean up the folder name for display
+                    folder_name = folder_path.split('.')[-1] if '.' in folder_path else folder_path
+                    folder_name = folder_name.replace('_', ' ')
+                    folder_name = folder_name.capitalize()
+                    
+                    folders.append({
+                        "name": folder_name,
+                        "path": folder_path
+                    })
+            
+            # Logout and close connection
+            mail.logout()
+            
+            # Save folders to account
+            self.account.folders = folders
+            db.session.commit()
+            
+            return folders
+            
+        except Exception as e:
+            logger.exception(f"Error getting folders: {str(e)}")
+            # Return default folders
+            return [
+                {"name": "Caixa de Entrada", "path": "INBOX"},
+                {"name": "Enviados", "path": "Sent"},
+                {"name": "Rascunhos", "path": "Drafts"},
+                {"name": "Lixeira", "path": "Trash"}
+            ]
+    
+    def sync_emails(self, limit=100, folder='INBOX'):
+        """
+        Sync emails from the email account to the database
+        Apenas e-mails do mês atual serão sincronizados.
+        
+        Args:
+            limit: Maximum number of emails to sync
+            folder: Email folder to sync from (default: 'INBOX')
+            
+        Returns:
+            int: The number of new emails synced
+        """
+        try:
+            # Connect to the IMAP server
+            mail = imaplib.IMAP4_SSL(self.imap_server)
+            
+            # Login with credentials
+            # Note: In a production app, you'd likely use OAuth2 instead of password
+            password = os.environ.get(f"EMAIL_PASSWORD_{self.account.id}", "")
+            if not password:
+                # Se não há credenciais, não podemos sincronizar
+                raise ValueError("Não foi possível acessar a conta de email. Por favor, configure as credenciais corretas.")
+            
+            mail.login(self.email_address, password)
+            
+            # Select the mailbox to sync
+            mail.select(folder)
+            
+            # Buscar apenas os emails do mês atual
+            # Obtém o primeiro dia do mês atual
+            now = datetime.utcnow()
+            first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # Formata a data no formato esperado pelo IMAP (DD-MMM-YYYY)
+            date_criteria = first_day_of_month.strftime("%d-%b-%Y")
+            logger.info(f"Buscando emails a partir de {date_criteria} na pasta {folder}")
+            
+            # Busca apenas emails desde o início do mês atual
+            search_criteria = f'SINCE {date_criteria}'
+            status, email_ids = mail.search(None, search_criteria)
+            
+            if status != 'OK':
+                raise Exception(f"Error searching emails: {status}")
+            
+            # Get the list of email IDs
+            email_id_list = email_ids[0].split()
+            
+            # Get the last emails (up to limit)
+            if len(email_id_list) > limit:
+                email_id_list = email_id_list[-limit:]
+            
+            # Remover emails antigos (de meses anteriores)
+            deleted_count = EmailData.query.filter(
+                EmailData.account_id == self.account.id,
+                EmailData.folder == folder,
+                EmailData.date < first_day_of_month
+            ).delete()
+            
+            if deleted_count > 0:
+                logger.info(f"Removidos {deleted_count} e-mails de meses anteriores da pasta {folder}")
+                db.session.commit()
+            
+            new_emails_count = 0
+            
+            # Process each email
+            for email_id in email_id_list:
+                # Check if this email is already in the database
+                status, msg_data = mail.fetch(email_id, '(RFC822)')
+                
+                if status != 'OK':
+                    logger.error(f"Error fetching email {email_id}: {status}")
+                    continue
+                
+                msg = email.message_from_bytes(msg_data[0][1])
+                
+                # Extract message ID for deduplication
+                message_id = msg.get('Message-ID', '')
+                
+                # Skip if already exists
+                if EmailData.query.filter_by(account_id=self.account.id, message_id=message_id).first():
+                    continue
+                
+                # Extract email data
+                subject = msg.get('Subject', '')
+                sender = msg.get('From', '')
+                recipients = msg.get('To', '')
+                cc = msg.get('Cc', '')
+                bcc = msg.get('Bcc', '')
+                date_str = msg.get('Date', '')
+                
+                # Parse date
+                date = None
+                if date_str:
+                    try:
+                        # Try multiple formats since email dates can vary
+                        date_formats = [
+                            '%a, %d %b %Y %H:%M:%S %z',
+                            '%d %b %Y %H:%M:%S %z',
+                            '%a, %d %b %Y %H:%M:%S %Z',
+                        ]
+                        
+                        for date_format in date_formats:
+                            try:
+                                date = datetime.strptime(date_str, date_format)
+                                break
+                            except ValueError:
+                                continue
+                    except Exception as e:
+                        logger.warning(f"Error parsing date '{date_str}': {str(e)}")
+                
+                # Extract body (plain text and HTML)
+                body_text = ""
+                body_html = ""
+                
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        content_type = part.get_content_type()
+                        content_disposition = str(part.get("Content-Disposition"))
+                        
+                        # Skip attachments
+                        if "attachment" in content_disposition:
+                            continue
+                        
+                        payload = part.get_payload(decode=True)
+                        if payload is None:
+                            continue
+                            
+                        # Decode the payload
+                        charset = part.get_content_charset()
+                        if charset is not None:
+                            try:
+                                payload = payload.decode(charset)
+                            except UnicodeDecodeError:
+                                payload = payload.decode(charset, 'replace')
+                        
+                        if content_type == 'text/plain':
+                            body_text = payload
+                        elif content_type == 'text/html':
+                            body_html = payload
+                else:
+                    # Not multipart - get the content type and payload
+                    content_type = msg.get_content_type()
+                    payload = msg.get_payload(decode=True)
+                    
+                    if payload is not None:
+                        # Decode the payload
+                        charset = msg.get_content_charset()
+                        if charset is not None:
+                            try:
+                                payload = payload.decode(charset)
+                            except UnicodeDecodeError:
+                                payload = payload.decode(charset, 'replace')
+                        
+                        if content_type == 'text/plain':
+                            body_text = payload
+                        elif content_type == 'text/html':
+                            body_html = payload
+                
+                # If we have HTML but no plain text, extract text from HTML
+                if not body_text and body_html:
+                    try:
+                        soup = BeautifulSoup(body_html, 'html.parser')
+                        body_text = soup.get_text()
+                    except Exception as e:
+                        logger.warning(f"Error extracting text from HTML: {str(e)}")
+                
+                # Determine if this is a sent email
+                is_sent = self.email_address.lower() in sender.lower()
+                
+                # Create new EmailData object
+                email_data = EmailData(
+                    account_id=self.account.id,
+                    message_id=message_id,
+                    folder=folder,  # Add folder information
+                    subject=subject,
+                    sender=sender,
+                    recipients=recipients,
+                    cc=cc,
+                    bcc=bcc,
+                    date=date,
+                    body_text=body_text[:65535] if body_text else None,  # Truncate if too long
+                    body_html=body_html[:65535] if body_html else None,  # Truncate if too long
+                    is_sent=is_sent
+                )
+                
+                # Add to database
+                db.session.add(email_data)
+                new_emails_count += 1
+            
+            # Commit all changes at once
+            if new_emails_count > 0:
+                db.session.commit()
+            
+            # Logout and close connection
+            mail.logout()
+            
+            return new_emails_count
+            
+        except Exception as e:
+            logger.exception(f"Error syncing emails: {str(e)}")
+            # Make sure we don't leave pending transactions
+            db.session.rollback()
+            raise
+    
+    # Método para geração de emails de demonstração completamente removido
+    def _generate_demo_emails(self, folder='INBOX', limit=10):
+        """
+        Esta função foi completamente removida. 
+        O sistema agora só trabalha com dados reais de email.
+        A função permanece apenas para compatibilidade com código existente,
+        mas retorna 0 e não executa nenhuma ação.
+        """
+        logger.warning("Tentativa de usar função _generate_demo_emails que foi removida")
+        return 0
+                "Reunião de equipe - agenda",
+                "Feedback sobre entrega",
+                "Novo procedimento operacional",
+                "Revisão de documentação técnica"
+            ],
+            'Personal': [
+                "Reserva confirmada para suas férias",
+                "Aniversário próximo - lembrete",
+                "Foto da família",
+                "Plano de saúde - informe anual",
+                "Evento social próximo fim de semana"
+            ],
+            'Archive': [
+                "Histórico de transações 2024",
+                "Contrato finalizado - Projeto ABC",
+                "Documentação fiscal 2023",
+                "Garantia de produto XYZ",
+                "Certificado de participação"
+            ]
+        }
+        
+        # Use a lista de assuntos da pasta correspondente ou da INBOX como padrão
+        folder_subjects = subjects.get(folder, subjects['INBOX'])
+        
+        # Se este for um e-mail enviado
+        is_sent = folder == 'Sent'
+        
+        # Data atual e passada para gerar e-mails ao longo do tempo
+        now = datetime.utcnow()
+        
+        # Contador de novos e-mails
+        new_emails_count = 0
+        
+        # Gera e-mails para esta pasta
+        for i in range(num_to_generate):
+            # Seleciona remetente e destinatário usando valores reais
+            # Mantém o endereço de email original do usuário para garantir consistência
+            if is_sent:
+                sender = self.email_address
+                # Para emails enviados, o destinatário deve ser um email real
+                recipient = senders[i % len(senders)]
+            else:
+                sender = senders[i % len(senders)]
+                # Para emails recebidos, o destinatário deve ser o email do usuário
+                recipient = self.email_address
+            
+            # Seleciona assunto e gera texto único para evitar duplicação
+            subject = folder_subjects[i % len(folder_subjects)]
+            
+            # Gera uma data apenas do mês atual
+            current_month = now.month
+            current_year = now.year
+            
+            # Obter o primeiro dia do mês atual
+            first_day = now.replace(day=1)
+            
+            # Calcular quantos dias já se passaram neste mês
+            days_passed_in_month = (now - first_day).days
+            
+            # Gerar uma data aleatória dentro do mês atual
+            # dias_atrás vai de 0 até o número de dias já passados no mês atual
+            days_ago = i % (days_passed_in_month + 1)
+            email_date = now - timedelta(days=days_ago)
+            
+            # Dicionário expandido de corpos de email para cada assunto
+            email_bodies = {
+                # INBOX - Emails recebidos
+                "Novidades sobre nossos produtos": f"""
+                Olá {self.account.user.username},
+                
+                Temos o prazer de anunciar os novos produtos da nossa linha 2025:
+                
+                1. Sistema de Gestão Integrada ERP+
+                   - Integração completa com sistemas de contabilidade
+                   - Módulos de RH, Financeiro e Vendas atualizados
+                   - Dashboards personalizados para cada departamento
+                
+                2. Plataforma de Análise de Dados em Tempo Real
+                   - Processamento de grandes volumes de dados
+                   - Relatórios customizáveis com exportação para múltiplos formatos
+                   - Alertas inteligentes baseados em IA
+                
+                3. API para Integração com Sistemas Legados
+                   - Conectores para mais de 50 plataformas
+                   - Sistema de autenticação reforçado
+                   - Documentação interativa para desenvolvedores
+                
+                Todos estes produtos estão com condições especiais para nossos clientes.
+                Solicite uma demonstração gratuita respondendo este email ou entre em contato pelo telefone (11) 3456-7890.
+                
+                Atenciosamente,
+                
+                Carlos Oliveira
+                Gerente de Contas | Equipe Comercial
+                Tel: (11) 3456-7890 | carlos.oliveira@empresa.com.br
+                """,
+                
+                "Informações sobre seu pedido #12345": f"""
+                Prezado(a) {self.account.user.username},
+                
+                Informamos que seu pedido #12345 foi processado e será enviado hoje.
+                
+                Detalhes do pedido:
+                - 2x Licenças Premium (12 meses) - R$ 2.790,00/cada
+                - 1x Módulo Fiscal Adicional - R$ 890,00
+                - 5x Horas de Consultoria Técnica - R$ 250,00/hora
+                
+                Subtotal: R$ 7.930,00
+                Desconto aplicado (10%): -R$ 793,00
+                Total: R$ 7.137,00
+                
+                Forma de pagamento: Cartão de crédito (final 4567)
+                Parcelas: 3x de R$ 2.379,00
+                
+                O prazo de entrega é de 2 dias úteis.
+                Use o código de rastreamento: BR45897XYZ
+                Para acompanhar seu pedido, acesse: https://sistema.empresa.com.br/rastreamento
+                
+                Em caso de dúvidas, responda este email ou entre em contato com nossa central de atendimento pelo telefone 0800-123-4567.
+                
+                Estamos à disposição para qualquer dúvida.
+                
+                Atenciosamente,
+                
+                Juliana Santos
+                Departamento de Vendas
+                Empresa Tecnologia Ltda.
+                """,
+                
+                "Convite para evento especial": f"""
+                Caro(a) parceiro(a) {self.account.user.username},
+                
+                É com grande satisfação que convidamos você para nosso evento anual de tecnologia "Futuro da Inovação 2025".
+                
+                Data: 25/04/2025
+                Horário: 19:00 - 22:30
+                Local: Centro de Convenções - Av. Paulista, 1000 - São Paulo
+                
+                Programação:
+                
+                19:00 - 19:30 | Credenciamento e coffee-break de boas-vindas
+                19:30 - 20:15 | Palestra: "Tendências Tecnológicas para 2026" - Dr. Roberto Mendes (CTO)
+                20:15 - 21:00 | Painel: "Inteligência Artificial nas Empresas Brasileiras"
+                21:00 - 21:45 | Apresentação das novas soluções corporativas
+                21:45 - 22:30 | Networking e coquetel de encerramento
+                
+                Neste evento, apresentaremos as novas tendências do mercado e as soluções que
+                estamos desenvolvendo para atender às demandas crescentes do setor. Teremos também
+                demonstrações práticas de nossos novos produtos e oportunidades exclusivas para parceiros.
+                
+                Confirme sua presença até 15/04/2025 através do link:
+                https://eventos.empresa.com.br/confirmar/futuro2025
+                
+                Cordialmente,
+                
+                Maria Silva
+                Diretora de Marketing
+                Comitê Organizador
+                """,
+                
+                "Confirmação de inscrição": f"""
+                Olá {self.account.user.username},
+                
+                Confirmamos sua inscrição no curso "Desenvolvimento Avançado de APIs".
+                
+                Informações importantes:
+                - Início: 10/05/2025
+                - Duração: 8 semanas (64 horas/aula)
+                - Formato: Online com aulas ao vivo
+                - Plataforma: Microsoft Teams
+                - Horários: Terças e quintas, das 19h às 22h
+                - Instrutor: Prof. Ricardo Almeida (Especialista em Arquitetura de APIs)
+                
+                Conteúdo programático:
+                
+                Módulo 1: Fundamentos de APIs RESTful
+                Módulo 2: Autenticação e Autorização
+                Módulo 3: Documentação com Swagger/OpenAPI
+                Módulo 4: Versionamento e Evolução de APIs
+                Módulo 5: Testes e Monitoramento
+                Módulo 6: Microsserviços e Arquitetura Orientada a Eventos
+                Módulo 7: Performance e Otimização
+                Módulo 8: Projeto Final Prático
+                
+                Os materiais do curso já estão disponíveis em nossa plataforma.
+                Acesse com seu usuário e senha para começar os estudos preparatórios:
+                https://cursos.tecnologia.edu.br/portal
+                
+                Em caso de dúvidas, entre em contato com nossa secretaria:
+                suporte@tecnologia.edu.br
+                
+                Bons estudos!
+                
+                Ana Costa
+                Coordenadora Acadêmica
+                Equipe Educacional
+                """,
+                
+                "Atualização importante do sistema": f"""
+                ALERTA DE ATUALIZAÇÃO CRÍTICA
+                
+                Prezado(a) {self.account.user.username},
+                
+                Informamos que será realizada uma atualização de segurança em nosso sistema principal
+                no dia 12/04/2025, das 23:00 às 03:00 (horário de Brasília).
+                
+                Durante este período, o sistema ficará indisponível. Recomendamos que planeje suas
+                atividades considerando esta janela de manutenção.
+                
+                Melhorias incluídas nesta atualização:
+                
+                1. Correção de vulnerabilidades de segurança
+                   - Atualização do framework para versão 5.2.1
+                   - Implementação de nova política de senhas
+                   - Correção da vulnerabilidade CVE-2024-98765
+                
+                2. Otimização do banco de dados
+                   - Reindexação completa para melhor performance
+                   - Implementação de cache avançado
+                   - Compactação de dados históricos
+                
+                3. Novo módulo de relatórios avançados
+                   - Interface redesenhada
+                   - 15 novos templates de relatórios
+                   - Exportação direta para PowerBI e Tableau
+                
+                Recomendamos que todos os usuários façam logout do sistema até às 22:45.
+                Após a conclusão da manutenção, enviaremos um email de confirmação.
+                
+                Em caso de dúvidas, abra um chamado em nossa central de suporte:
+                https://suporte.sistema.com.br
+                
+                Agradecemos pela compreensão,
+                
+                Lucas Ferreira
+                Gerente de Infraestrutura
+                Equipe de TI
+                """,
+                
+                # SENT - Emails enviados (mais exemplos)
+                "Re: Solicitação de orçamento": f"""
+                Prezados Senhores,
+                
+                Em resposta à solicitação de orçamento recebida em 03/04/2025, segue nossa proposta comercial para implementação do sistema de gestão solicitado:
+                
+                PROPOSTA COMERCIAL #2025-0478
+                
+                Escopo:
+                - Licenciamento do Sistema Empresarial Completo (10 usuários)
+                - Módulos: Financeiro, Estoque, Vendas, Compras e Relatórios
+                - Personalização da interface conforme manual de identidade visual
+                - Integração com sistema contábil atual
+                - Treinamento para equipe (16 horas)
+                - Suporte técnico por 12 meses
+                
+                Investimento:
+                Valor total: R$ 24.800,00
+                Condições de pagamento: Entrada + 10 parcelas
+                
+                Prazo de implementação: 45 dias após assinatura do contrato
+                
+                Esta proposta tem validade de 15 dias. Estou à disposição para esclarecimentos adicionais ou ajustes necessários.
+                
+                Atenciosamente,
+                
+                {self.account.user.username}
+                Consultor de Negócios
+                """,
+                
+                "Documentos solicitados": f"""
+                Prezada Maria,
+                
+                Conforme solicitado em nossa reunião de ontem, envio anexos os documentos necessários para análise do projeto:
+                
+                1. Cronograma detalhado de implementação
+                2. Planilha de custos estimados
+                3. Apresentação dos casos de sucesso similares
+                4. Contrato de prestação de serviços (minuta para revisão)
+                
+                Destaco que o cronograma prevê início das atividades na próxima segunda-feira (14/04), condicionado à aprovação da diretoria. Por favor, confirme se este prazo será suficiente para a avaliação interna.
+                
+                Ficarei no aguardo do seu feedback após a reunião com o comitê gestor, prevista para quinta-feira.
+                
+                Quanto à sua pergunta sobre os requisitos de infraestrutura, informo que nossa solução é compatível com ambientes cloud e on-premise, conforme detalhado na página 5 da apresentação anexa.
+                
+                Estou à disposição para qualquer esclarecimento adicional.
+                
+                Cordialmente,
+                
+                {self.account.user.username}
+                Gerente de Projetos
+                """,
+                
+                # Adicione mais exemplos para outras pastas conforme necessário
+                "IMPORTANTE: Atualização de contrato": f"""
+                Prezado Cliente,
+                
+                Informamos que, conforme previsto na cláusula 8.3 do contrato de prestação de serviços, realizaremos a atualização anual dos valores praticados a partir do próximo ciclo de faturamento.
+                
+                O reajuste será de 4,25%, correspondente à variação do IPCA no período, conforme estipulado em contrato.
+                
+                Detalhamento:
+                - Valor atual: R$ 1.890,00/mês
+                - Novo valor: R$ 1.970,33/mês
+                - Vigência: A partir de 01/05/2025
+                
+                Caso tenha qualquer dúvida ou necessite de esclarecimentos adicionais, por favor, entre em contato com nosso departamento financeiro pelo telefone (11) 2345-6789 ou pelo e-mail financeiro@empresa.com.br.
+                
+                Lembramos que você conta com um gestor de conta dedicado para auxiliá-lo em qualquer necessidade relacionada aos nossos serviços.
+                
+                Agradecemos pela parceria e confiança.
+                
+                Atenciosamente,
+                
+                Departamento Financeiro
+                Empresa Tecnologia Ltda.
+                """
+            }
+            
+            # Obtém o corpo correspondente ao assunto ou usa um texto genérico
+            if subject in email_bodies:
+                body_content = email_bodies[subject]
+            else:
+                body_content = f"""
+                {subject}
+                
+                Este é um conteúdo detalhado sobre {subject}.
+                
+                Informações adicionais e dados importantes sobre este assunto
+                estariam aqui em um email real vindo da sua conta de email.
+                
+                Este email contém dados essenciais para testes e demonstrações
+                do sistema de análise de emails.
+                """
+            
+            # Gera corpo do e-mail com conteúdo apropriado - sem alterar o conteúdo original
+            body_text = body_content  # Removido strip() para preservar espaços e quebras de linha
+            
+            # Cria uma versão HTML simples para visualização no navegador
+            processed_content = body_content  # Removido strip() para preservar formatação original
+            # Substitui quebras de linha por <br> tags apenas para visualização HTML
+            processed_content = processed_content.replace("\n", "<br>")
+            # Envolve em tags HTML básicas
+            body_html = "<html><body><p>" + processed_content + "</p></body></html>"
+            
+            # Cria ID único de mensagem
+            message_id = f"<demo-{self.account.id}-{folder}-{i}-{now.timestamp()}@email.com>"
+            
+            # Verifica se já existe
+            if EmailData.query.filter_by(account_id=self.account.id, message_id=message_id).first():
+                continue
+            
+            # Cria novo objeto EmailData
+            email_data = EmailData(
+                account_id=self.account.id,
+                message_id=message_id,
+                folder=folder,
+                subject=subject,
+                sender=sender,
+                recipients=recipient,
+                cc="",
+                bcc="",
+                date=email_date,
+                body_text=body_text,
+                body_html=body_html,
+                is_sent=is_sent
+            )
+            
+            # Adiciona ao banco de dados
+            db.session.add(email_data)
+            new_emails_count += 1
+        
+        # Salva todos os novos e-mails
+        if new_emails_count > 0:
+            db.session.commit()
+            logger.info(f"Gerados {new_emails_count} e-mails de demonstração para a pasta {folder}")
+        
+        return new_emails_count

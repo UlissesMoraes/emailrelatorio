@@ -1,0 +1,860 @@
+{% extends "base.html" %}
+
+{% block title %}Visualizar Relatório - Gerenciador de Relatórios{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .export-btn {
+        margin-left: 0.5rem;
+    }
+    .chart-container {
+        height: 300px;
+        margin-bottom: 2rem;
+    }
+    .email-list-container {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .stat-card {
+        border-radius: 10px;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .email-item {
+        border-left: 4px solid transparent;
+        transition: all 0.2s;
+    }
+    .email-item:hover {
+        border-left-color: var(--bs-primary);
+        background-color: rgba(var(--bs-primary-rgb), 0.05);
+    }
+    .email-item.sent {
+        border-left-color: #20c997;
+    }
+    .email-item.received {
+        border-left-color: #0d6efd;
+    }
+    .report-summary-section {
+        margin-bottom: 2rem;
+    }
+    /* Estilos adicionais para corrigir visualização da tabela */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+    .email-list {
+        width: 100%;
+        table-layout: fixed;
+    }
+    .email-list td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 250px;
+    }
+    .email-content-row td {
+        white-space: normal;
+    }
+    .email-preview, .email-body-text {
+        max-width: 100%;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">{{ report.name }}</h1>
+        <p class="text-muted">
+            {% if report.type == 'summary' %}Relatório Resumido{% else %}Relatório Detalhado{% endif %}
+            • Gerado em {{ report.last_generated.strftime('%d/%m/%Y %H:%M') }}
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('reports') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar para Relatórios
+        </a>
+        <div class="btn-group export-btn">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-download me-2"></i>Exportar
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='pdf') }}">
+                    <i class="far fa-file-pdf me-2"></i>PDF
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('export_report', report_id=report.id, format='csv') }}">
+                    <i class="far fa-file-csv me-2"></i>CSV
+                </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Report Details Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Detalhes do Relatório</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Conta de E-mail:</strong> 
+                    {% if email_account %}
+                        {{ email_account.email_address }}
+                    {% else %}
+                        Todas as contas
+                    {% endif %}
+                </p>
+                <p><strong>Período:</strong> 
+                    {% if report.date_range_start and report.date_range_end %}
+                        {{ report.date_range_start.strftime('%d/%m/%Y') }} até {{ report.date_range_end.strftime('%d/%m/%Y') }}
+                    {% elif report.date_range_start %}
+                        A partir de {{ report.date_range_start.strftime('%d/%m/%Y') }}
+                    {% elif report.date_range_end %}
+                        Até {{ report.date_range_end.strftime('%d/%m/%Y') }}
+                    {% else %}
+                        Todo o período
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Tipos de E-mail:</strong>
+                    {% if report.filters and 'include_sent' in report.filters and 'include_received' in report.filters %}
+                        {% if report.filters.include_sent and report.filters.include_received %}
+                            Enviados e Recebidos
+                        {% elif report.filters.include_sent %}
+                            Apenas Enviados
+                        {% elif report.filters.include_received %}
+                            Apenas Recebidos
+                        {% endif %}
+                    {% else %}
+                        Todos
+                    {% endif %}
+                </p>
+                <p><strong>Termo de Busca:</strong> 
+                    {% if report.filters and 'search_term' in report.filters and report.filters.search_term %}
+                        {{ report.filters.search_term }}
+                    {% else %}
+                        Nenhum
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if report.type == 'summary' %}
+<!-- Summary Report View -->
+<div class="row mb-4">
+    <!-- Stats Cards -->
+    <div class="col-md-3">
+        <div class="card stat-card bg-primary text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Total de E-mails</h5>
+                <h2 class="display-4">{{ report_data.get('total_emails', 0) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card bg-success text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">E-mails Enviados</h5>
+                <h2 class="display-4">{{ report_data.get('total_sent', 0) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card bg-info text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">E-mails Recebidos</h5>
+                <h2 class="display-4">{{ report_data.get('total_received', 0) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card bg-warning text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Média por Dia</h5>
+                <h2 class="display-4">{{ "%.1f"|format(report_data.get('avg_per_day', 0)) }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Volume de E-mails por Dia</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="emailVolumeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">E-mails por Tipo</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="emailTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Contacts -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Principais Contatos de Envio</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="topSendersChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Principais Contatos de Recebimento</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="topRecipientsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Patterns -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Padrões de Atividade</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <canvas id="hourlyActivityChart"></canvas>
+                    <p class="text-center mt-2">Distribuição por Hora do Dia</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <canvas id="weekdayActivityChart"></canvas>
+                    <p class="text-center mt-2">Distribuição por Dia da Semana</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Common Words Cloud (If summary contains it) -->
+{% if report_data.common_words %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Palavras Comuns em Assuntos</h5>
+    </div>
+    <div class="card-body">
+        <div id="wordCloud" style="height: 350px;"></div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Detailed Report View -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Lista de E-mails <span class="badge bg-info ms-2">{{ report_data.total }} e-mails encontrados</span></h5>
+        <div class="d-flex align-items-center">
+            <button class="btn btn-outline-secondary me-3" id="toggleAllEmails">
+                <i class="fas fa-expand-alt me-1"></i>Expandir Todos
+            </button>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="viewFullEmails">
+                <label class="form-check-label" for="viewFullEmails">Mostrar conteúdo completo</label>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if report_data.total == 0 %}
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Nenhum e-mail encontrado com os critérios selecionados. Tente sincronizar sua conta de e-mail novamente ou modificar os filtros do relatório.
+        </div>
+        <div class="text-center my-4">
+            <a href="{{ url_for('create_report') }}" class="btn btn-primary">
+                <i class="fas fa-edit me-2"></i>Modificar Relatório
+            </a>
+        </div>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover email-list">
+                <thead>
+                    <tr>
+                        <th style="width: 12%">Data</th>
+                        <th style="width: 30%">Assunto</th>
+                        <th style="width: 22%">De</th>
+                        <th style="width: 22%">Para</th>
+                        <th style="width: 8%">Pasta</th>
+                        <th style="width: 6%">Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for email in report_data.emails %}
+                    <tr class="email-item {% if email.is_sent %}sent{% else %}received{% endif %}" data-email-id="{{ email.id }}">
+                        <td>{{ email.date }}</td>
+                        <td class="email-subject">{{ email.subject or "(Sem assunto)" }}</td>
+                        <td>{{ email.sender }}</td>
+                        <td>{{ email.recipients }}</td>
+                        <td>{{ email.folder }}</td>
+                        <td>
+                            <span class="badge {% if email.is_sent %}bg-success{% else %}bg-primary{% endif %}">
+                                {% if email.is_sent %}Enviado{% else %}Recebido{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="email-content-row d-none" id="email-content-{{ email.id }}">
+                        <td colspan="6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="preview-tab-{{ email.id }}" data-bs-toggle="tab" 
+                                                data-bs-target="#preview-{{ email.id }}" type="button" role="tab">Visualização</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="details-tab-{{ email.id }}" data-bs-toggle="tab" 
+                                                data-bs-target="#details-{{ email.id }}" type="button" role="tab">Detalhes</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="raw-tab-{{ email.id }}" data-bs-toggle="tab" 
+                                                data-bs-target="#raw-{{ email.id }}" type="button" role="tab">Corpo do Email</button>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="card-body">
+                                    <div class="tab-content">
+                                        <div class="tab-pane fade show active" id="preview-{{ email.id }}" role="tabpanel">
+                                            <div class="email-header mb-3 p-3 border-bottom">
+                                                <h5>{{ email.subject or "(Sem assunto)" }}</h5>
+                                                <div class="row mt-2">
+                                                    <div class="col-md-6">
+                                                        <p class="mb-1"><strong>De:</strong> {{ email.sender }}</p>
+                                                        <p class="mb-1"><strong>Para:</strong> {{ email.recipients }}</p>
+                                                        {% if email.cc %}
+                                                        <p class="mb-1"><strong>CC:</strong> {{ email.cc }}</p>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="col-md-6 text-md-end">
+                                                        <p class="mb-1"><strong>Data:</strong> {{ email.date }}</p>
+                                                        <p class="mb-1"><strong>Pasta:</strong> {{ email.folder }}</p>
+                                                        <span class="badge {% if email.is_sent %}bg-success{% else %}bg-primary{% endif %}">
+                                                            {% if email.is_sent %}Enviado{% else %}Recebido{% endif %}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="email-preview border rounded p-3 bg-light">
+                                                {% if email.body_preview %}
+                                                <p style="white-space: pre-wrap; font-family: inherit;">{{ email.body_preview }}</p>
+                                                {% else %}
+                                                <p class="text-muted fst-italic">Este email não possui conteúdo de texto ou está vazio.</p>
+                                                {% endif %}
+                                                
+                                                {% if email.body_text and email.body_text|length > 200 %}
+                                                <div class="text-end mt-2">
+                                                    <button class="btn btn-sm btn-primary show-full-content" data-email-id="{{ email.id }}">
+                                                        <i class="fas fa-envelope-open me-1"></i>Mostrar conteúdo completo
+                                                    </button>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="tab-pane fade" id="details-{{ email.id }}" role="tabpanel">
+                                            <div class="card-body bg-light rounded-3 mb-3">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <p class="mb-2"><strong>ID:</strong> {{ email.id }}</p>
+                                                        <p class="mb-2"><strong>Pasta:</strong> {{ email.folder }}</p>
+                                                        <p class="mb-2"><strong>Tipo:</strong> 
+                                                            <span class="badge {% if email.is_sent %}bg-success{% else %}bg-primary{% endif %}">
+                                                                {% if email.is_sent %}Enviado{% else %}Recebido{% endif %}
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <p class="mb-2"><strong>Assunto:</strong> {{ email.subject or "(Sem assunto)" }}</p>
+                                                        <p class="mb-2"><strong>De:</strong> {{ email.sender }}</p>
+                                                        <p class="mb-2"><strong>Para:</strong> {{ email.recipients }}</p>
+                                                        {% if email.cc %}
+                                                        <p class="mb-2"><strong>CC:</strong> {{ email.cc }}</p>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <h6>Informações de Origem</h6>
+                                            <p>Recebido via: Sincronização de Email</p>
+                                            <p>Data de processamento: {{ now.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+                                        </div>
+                                        <div class="tab-pane fade" id="raw-{{ email.id }}" role="tabpanel">
+                                            <div class="border p-3 bg-primary bg-opacity-10 rounded-3 mb-3">
+                                                <h5 class="mb-2"><i class="fas fa-envelope-open-text me-2"></i>Corpo do Email</h5>
+                                                <p><small class="text-muted">Conteúdo completo da mensagem de email, incluindo todo o texto original.</small></p>
+                                            </div>
+                                            <div class="border rounded p-3 email-body-container">
+                                                {% if email.body_text %}
+                                                    <pre class="email-body-text" style="white-space: pre-wrap; font-family: inherit;">{{ email.body_text }}</pre>
+                                                {% else %}
+                                                    <div class="alert alert-warning">
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>Este email não possui conteúdo de texto ou está vazio.
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script>
+    // Chart configurations will be populated based on the report data
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if report.type == 'summary' %}
+        
+        // Email Volume Over Time Chart
+        {% if report_data.by_date is defined %}
+        const volumeData = {{ report_data.by_date | tojson }};
+        const volumeCtx = document.getElementById('emailVolumeChart').getContext('2d');
+        new Chart(volumeCtx, {
+            type: 'line',
+        {% else %}
+        // Volume data not available
+        console.log("Email volume data not available");
+        const volumeCtx = document.getElementById('emailVolumeChart')?.getContext('2d');
+        if (volumeCtx) {
+            new Chart(volumeCtx, {
+                type: 'line',
+        {% endif %}
+            data: {
+                labels: volumeData ? Object.keys(volumeData) : [],
+                datasets: [{
+                    label: 'Volume de E-mails',
+                    data: volumeData ? Object.values(volumeData) : [],
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Email Types Pie Chart
+        const typeCtx = document.getElementById('emailTypeChart').getContext('2d');
+        new Chart(typeCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Enviados', 'Recebidos'],
+                datasets: [{
+                    data: [{{ report_data.get('total_sent', 0) }}, {{ report_data.get('total_received', 0) }}],
+                    backgroundColor: ['#20c997', '#0d6efd'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // Top Senders Chart
+        {% if report_data.top_senders is defined %}
+        const sendersData = {{ report_data.top_senders | tojson }};
+        // Processar dados para gráfico
+        const processedSendersData = {
+            labels: [],
+            values: []
+        };
+        
+        // Converter dados para formato apropriado
+        if (Array.isArray(sendersData)) {
+            sendersData.forEach(item => {
+                if (item && typeof item === 'object') {
+                    processedSendersData.labels.push(item.sender || 'Desconhecido');
+                    processedSendersData.values.push(item.count || 0);
+                }
+            });
+        }
+        
+        const sendersCtx = document.getElementById('topSendersChart').getContext('2d');
+        new Chart(sendersCtx, {
+            type: 'bar',
+            data: {
+                labels: processedSendersData.labels,
+                datasets: [{
+                    label: 'Número de E-mails',
+                    data: processedSendersData.values,
+                    backgroundColor: 'rgba(32, 201, 151, 0.7)'
+                }]
+            },
+        {% else %}
+        // Sem dados disponíveis
+        const sendersCtx = document.getElementById('topSendersChart')?.getContext('2d');
+        if (sendersCtx) {
+            new Chart(sendersCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sem dados'],
+                    datasets: [{
+                        label: 'Número de E-mails',
+                        data: [0],
+                        backgroundColor: 'rgba(32, 201, 151, 0.7)'
+                    }]
+                },
+        {% endif %}
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Top Recipients Chart
+        {% if report_data.top_recipients is defined %}
+        const recipientsData = {{ report_data.top_recipients | tojson }};
+        // Processar dados para gráfico
+        const processedRecipientsData = {
+            labels: [],
+            values: []
+        };
+        
+        // Converter dados para formato apropriado
+        if (Array.isArray(recipientsData)) {
+            recipientsData.forEach(item => {
+                if (item && typeof item === 'object') {
+                    processedRecipientsData.labels.push(item.recipient || 'Desconhecido');
+                    processedRecipientsData.values.push(item.count || 0);
+                }
+            });
+        }
+        
+        const recipientsCtx = document.getElementById('topRecipientsChart').getContext('2d');
+        new Chart(recipientsCtx, {
+            type: 'bar',
+            data: {
+                labels: processedRecipientsData.labels,
+                datasets: [{
+                    label: 'Número de E-mails',
+                    data: processedRecipientsData.values,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)'
+                }]
+            },
+        {% else %}
+        // Sem dados disponíveis
+        const recipientsCtx = document.getElementById('topRecipientsChart')?.getContext('2d');
+        if (recipientsCtx) {
+            new Chart(recipientsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sem dados'],
+                    datasets: [{
+                        label: 'Número de E-mails',
+                        data: [0],
+                        backgroundColor: 'rgba(13, 110, 253, 0.7)'
+                    }]
+                },
+        {% endif %}
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Hourly Activity Chart
+        {% if report_data.hourly_activity is defined %}
+        const hourlyData = {{ report_data.hourly_activity | tojson }};
+        const hourlyCtx = document.getElementById('hourlyActivityChart').getContext('2d');
+        new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: hourlyData ? hourlyData.labels || [] : [],
+                datasets: [{
+                    label: 'Atividade por Hora',
+                    data: hourlyData ? hourlyData.values || [] : [],
+                    backgroundColor: 'rgba(255, 193, 7, 0.7)'
+                }]
+            },
+        {% else %}
+        // Sem dados disponíveis
+        const hourlyCtx = document.getElementById('hourlyActivityChart')?.getContext('2d');
+        if (hourlyCtx) {
+            new Chart(hourlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0:00', '6:00', '12:00', '18:00'],
+                    datasets: [{
+                        label: 'Atividade por Hora',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: 'rgba(255, 193, 7, 0.7)'
+                    }]
+                },
+        {% endif %}
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Weekday Activity Chart
+        {% if report_data.weekday_activity is defined %}
+        const weekdayData = {{ report_data.weekday_activity | tojson }};
+        const weekdayCtx = document.getElementById('weekdayActivityChart').getContext('2d');
+        new Chart(weekdayCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+                datasets: [{
+                    label: 'Atividade por Dia da Semana',
+                    data: weekdayData && weekdayData.values ? weekdayData.values : [0, 0, 0, 0, 0, 0, 0],
+                    backgroundColor: 'rgba(111, 66, 193, 0.7)'
+                }]
+            },
+        {% else %}
+        // Sem dados disponíveis
+        const weekdayCtx = document.getElementById('weekdayActivityChart')?.getContext('2d');
+        if (weekdayCtx) {
+            new Chart(weekdayCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+                    datasets: [{
+                        label: 'Atividade por Dia da Semana',
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: 'rgba(111, 66, 193, 0.7)'
+                    }]
+                },
+        {% endif %}
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        {% endif %}
+    });
+
+    // Para relatórios detalhados, adicionamos funcionalidade de expansão de emails
+    {% if report.type == 'detailed' %}
+    // Toggle email content on click
+    const emailItems = document.querySelectorAll('.email-item');
+    let allExpanded = false;
+    
+    // Melhora a responsividade das tabelas para dispositivos móveis
+    const adjustTableResponsiveness = () => {
+        // Adapta a tabela para o tamanho da tela
+        const tableContainer = document.querySelector('.table-responsive');
+        if (tableContainer) {
+            tableContainer.style.overflowX = 'auto';
+        }
+        
+        // Limita o tamanho das células para evitar quebra de layout
+        const emailCells = document.querySelectorAll('.email-list td');
+        emailCells.forEach(cell => {
+            cell.style.maxWidth = '250px';
+            cell.style.overflow = 'hidden';
+            cell.style.textOverflow = 'ellipsis';
+            cell.style.whiteSpace = 'nowrap';
+        });
+        
+        // Garante que as células de conteúdo expandido não sejam limitadas
+        const contentCells = document.querySelectorAll('.email-content-row td');
+        contentCells.forEach(cell => {
+            cell.style.whiteSpace = 'normal';
+        });
+    };
+    
+    // Executa ajuste inicial
+    adjustTableResponsiveness();
+    
+    // Executa ajuste ao redimensionar a janela
+    window.addEventListener('resize', adjustTableResponsiveness);
+    
+    // Função para alternar a visibilidade de uma linha de email
+    function toggleEmailContent(emailId, forceShow = null) {
+        const contentRow = document.getElementById(`email-content-${emailId}`);
+        if (!contentRow) return;
+        
+        const shouldShow = forceShow !== null ? forceShow : contentRow.classList.contains('d-none');
+        
+        if (shouldShow) {
+            contentRow.classList.remove('d-none');
+            // Ajusta as células para mostrar o conteúdo completo
+            const cells = contentRow.querySelectorAll('td');
+            cells.forEach(cell => {
+                cell.style.whiteSpace = 'normal';
+            });
+            return true;
+        } else {
+            contentRow.classList.add('d-none');
+            return false;
+        }
+    }
+    
+    // Adicionar evento de clique a cada item de email
+    emailItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const emailId = this.getAttribute('data-email-id');
+            
+            // Se não estiver forçando expansão de todos, feche os outros
+            if (!document.getElementById('viewFullEmails').checked) {
+                document.querySelectorAll('.email-content-row:not(.d-none)').forEach(row => {
+                    const rowId = row.id.replace('email-content-', '');
+                    if (rowId !== emailId) {
+                        toggleEmailContent(rowId, false);
+                    }
+                });
+            }
+            
+            // Alterna a visibilidade deste email
+            toggleEmailContent(emailId);
+        });
+    });
+    
+    // Botão para expandir/contrair todos os emails
+    const toggleAllButton = document.getElementById('toggleAllEmails');
+    if (toggleAllButton) {
+        toggleAllButton.addEventListener('click', function() {
+            const allEmailIds = Array.from(emailItems).map(item => item.getAttribute('data-email-id'));
+            
+            // Inverte o estado atual
+            allExpanded = !allExpanded;
+            
+            // Atualiza todos os emails
+            allEmailIds.forEach(id => toggleEmailContent(id, allExpanded));
+            
+            // Atualiza texto do botão
+            this.innerHTML = allExpanded ? 
+                '<i class="fas fa-compress-alt me-1"></i>Recolher Todos' : 
+                '<i class="fas fa-expand-alt me-1"></i>Expandir Todos';
+        });
+    }
+    
+    // Toggle para mostrar todo o conteúdo de email
+    const viewFullEmailsToggle = document.getElementById('viewFullEmails');
+    viewFullEmailsToggle.addEventListener('change', function() {
+        const contentRows = document.querySelectorAll('.email-content-row');
+        if (this.checked) {
+            contentRows.forEach(row => row.classList.remove('d-none'));
+            // Se estiver mostrando todos, atualize o botão toggleAll
+            if (toggleAllButton) {
+                toggleAllButton.innerHTML = '<i class="fas fa-compress-alt me-1"></i>Recolher Todos';
+                allExpanded = true;
+            }
+        } else {
+            contentRows.forEach(row => row.classList.add('d-none'));
+            // Se estiver escondendo todos, atualize o botão toggleAll
+            if (toggleAllButton) {
+                toggleAllButton.innerHTML = '<i class="fas fa-expand-alt me-1"></i>Expandir Todos';
+                allExpanded = false;
+            }
+        }
+    });
+    
+    // Botões para mostrar conteúdo completo de emails longos
+    const showFullContentButtons = document.querySelectorAll('.show-full-content');
+    showFullContentButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation(); // Impede que o evento de clique propague para o tr pai
+            
+            const emailId = this.getAttribute('data-email-id');
+            const emailPreview = this.closest('.email-preview');
+            const rawTab = document.getElementById(`raw-tab-${emailId}`);
+            
+            if (rawTab) {
+                // Ativa a aba de conteúdo completo
+                rawTab.click();
+            }
+        });
+    });
+    {% endif %}
+</script>
+{% endblock %}

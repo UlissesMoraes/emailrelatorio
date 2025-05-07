@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Novo Usuário | Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Adicionar Novo Usuário</h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Início</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Administração</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin_users') }}">Usuários</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Novo Usuário</li>
+            </ol>
+        </nav>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Cadastrar Novo Usuário</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="">
+                        {{ form.csrf_token }}
+                        
+                        <div class="mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control", placeholder="Nome de usuário") }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.username.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control", placeholder="email@exemplo.com") }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control", placeholder="Senha") }}
+                            <div class="form-text">A senha deve ter pelo menos 8 caracteres.</div>
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.is_admin(class="form-check-input") }}
+                                {{ form.is_admin.label(class="form-check-label") }}
+                            </div>
+                            {% if form.is_admin.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_admin.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if is_superadmin %}
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="is_superadmin" name="is_superadmin" value="y">
+                                <label class="form-check-label" for="is_superadmin">Super Administrador</label>
+                            </div>
+                            <div class="form-text">Super Administradores podem gerenciar todas as organizações do sistema.</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            {{ form.organization_id.label(class="form-label") }}
+                            {{ form.organization_id(class="form-select") }}
+                            {% if form.organization_id.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.organization_id.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Organização à qual o usuário pertence.</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin_users') }}" class="btn btn-secondary">Cancelar</a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Pastas de E-mail - Gerenciador de Inventário{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0"><i class="fas fa-folder me-2"></i>Pastas de E-mail</h3>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>Voltar ao Dashboard
+                    </a>
+                </div>
+                <div class="card-body">
+                    <h4 class="mb-3">{{ account.email_address }}</h4>
+                    <p class="text-muted">Última sincronização: 
+                        {% if account.last_synced %}
+                            {{ account.last_synced.strftime('%d/%m/%Y %H:%M') }}
+                        {% else %}
+                            Nunca sincronizada
+                        {% endif %}
+                    </p>
+
+                    <div class="mb-4">
+                        <a href="{{ url_for('sync_emails', account_id=account.id, update_folders='true', next=url_for('email_folders', account_id=account.id)) }}" class="btn btn-primary me-2">
+                            <i class="fas fa-sync me-1"></i>Atualizar Pastas
+                        </a>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome da Pasta</th>
+                                    <th>Caminho</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for folder in folders %}
+                                <tr>
+                                    <td>{{ folder.name }}</td>
+                                    <td><code>{{ folder.path }}</code></td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('sync_emails', account_id=account.id, folder=folder.path, next=url_for('email_folders', account_id=account.id)) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-sync me-1"></i>Sincronizar
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

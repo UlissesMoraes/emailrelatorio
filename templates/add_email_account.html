@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Adicionar Conta de E-mail - Gerenciador de Inventário{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Adicionar Conta de E-mail</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_email_account') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Atenção:</strong> A sincronização só funciona com credenciais reais. Este sistema está configurado para trabalhar <u>exclusivamente</u> com emails reais das contas adicionadas, sem gerar nenhum tipo de dados de demonstração.
+                    </div>
+                    
+                    <div class="alert alert-danger">
+                        <i class="fas fa-lock me-2"></i>
+                        <strong>Importante:</strong> Credenciais inválidas ou incorretas não funcionarão. O sistema não permite mais o uso de dados fictícios ou demonstrativos. Apenas contas de e-mail reais com credenciais corretas poderão ser sincronizadas.
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Nota:</strong> Suas credenciais de e-mail são armazenadas com segurança e utilizadas apenas para sincronizar seus e-mails. Nunca armazenamos sua senha em texto simples.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="provider" class="form-label">Provedor de E-mail</label>
+                        {{ form.provider(class="form-select", id="provider") }}
+                        {% for error in form.provider.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email_address" class="form-label">Endereço de E-mail</label>
+                        {{ form.email_address(class="form-control", id="email_address", placeholder="Digite seu endereço de e-mail") }}
+                        {% for error in form.email_address.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Senha do E-mail</label>
+                        {{ form.password(class="form-control", id="password", placeholder="Digite a senha do seu e-mail") }}
+                        <small class="form-text text-muted">
+                            Para o Gmail, você pode precisar criar uma <a href="https://support.google.com/accounts/answer/185833" target="_blank">Senha de Aplicativo</a> se tiver a autenticação de dois fatores ativada.
+                        </small>
+                        {% for error in form.password.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div id="provider-instructions" class="mb-4 d-none"></div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar ao Painel
+                        </a>
+                        {{ form.submit(class="btn btn-primary", value="Adicionar Conta") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const providerSelect = document.getElementById('provider');
+    const instructionsDiv = document.getElementById('provider-instructions');
+    
+    const providerInstructions = {
+        'gmail': `
+            <h5>Instruções de Configuração do Gmail</h5>
+            <ol>
+                <li>Se você tem autenticação de dois fatores ativada (recomendado), precisará criar uma Senha de Aplicativo:
+                    <ul>
+                        <li>Acesse a <a href="https://myaccount.google.com/security" target="_blank">Segurança da Conta Google</a></li>
+                        <li>Em "Como fazer login no Google", selecione "Senhas de app"</li>
+                        <li>Selecione "E-mail" como aplicativo e "Outro" como dispositivo</li>
+                        <li>Nomeie como "Gerenciador de Inventário" e clique em "Gerar"</li>
+                        <li>Use a senha gerada no formulário acima</li>
+                    </ul>
+                </li>
+                <li>Se você não tiver autenticação de dois fatores:
+                    <ul>
+                        <li>Precisará <a href="https://myaccount.google.com/lesssecureapps" target="_blank">permitir apps menos seguros</a> (não recomendado)</li>
+                        <li>Use sua senha normal do Gmail</li>
+                    </ul>
+                </li>
+            </ol>
+        `,
+        'outlook': `
+            <h5>Instruções de Configuração do Outlook</h5>
+            <ol>
+                <li>Para contas Outlook.com ou Office 365:
+                    <ul>
+                        <li>Digite sua senha normal de e-mail</li>
+                        <li>Pode ser necessário aprovar o login no seu dispositivo</li>
+                    </ul>
+                </li>
+                <li>Se tiver autenticação de dois fatores ativada:
+                    <ul>
+                        <li>Acesse a <a href="https://account.live.com/proofs/Manage" target="_blank">Segurança da Conta Microsoft</a></li>
+                        <li>Crie uma senha de aplicativo e use-a em vez da sua senha normal</li>
+                    </ul>
+                </li>
+            </ol>
+        `
+    };
+    
+    function updateInstructions() {
+        const provider = providerSelect.value;
+        
+        if (providerInstructions[provider]) {
+            instructionsDiv.innerHTML = providerInstructions[provider];
+            instructionsDiv.classList.remove('d-none');
+        } else {
+            instructionsDiv.classList.add('d-none');
+        }
+    }
+    
+    providerSelect.addEventListener('change', updateInstructions);
+    
+    // Set initial instructions
+    updateInstructions();
+});
+</script>
+{% endblock %}

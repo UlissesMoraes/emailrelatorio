@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} | Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <a href="{{ url_for('support') }}" class="btn btn-outline-secondary me-3">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <h2 class="mb-0">
+                        <i class="fas fa-ticket-alt me-2"></i> 
+                        Ticket #{{ ticket.id }}: {{ ticket.subject }}
+                    </h2>
+                </div>
+                
+                {% if ticket.status != 'resolvido' %}
+                <form method="POST" action="{{ url_for('support_close') }}">
+                    {{ close_form.hidden_tag() }}
+                    {{ close_form.submit(class="btn btn-success") }}
+                </form>
+                {% else %}
+                <span class="badge bg-success p-2">Ticket Resolvido</span>
+                {% endif %}
+            </div>
+            <div class="text-muted mt-2">
+                <span class="me-3">Status: 
+                    {% if ticket.status == 'aberto' %}
+                    <span class="badge bg-danger">Aberto</span>
+                    {% elif ticket.status == 'em_andamento' %}
+                    <span class="badge bg-warning text-dark">Em Andamento</span>
+                    {% elif ticket.status == 'resolvido' %}
+                    <span class="badge bg-success">Resolvido</span>
+                    {% endif %}
+                </span>
+                <span class="me-3">Criado em: {{ ticket.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                <span>Última atualização: {{ ticket.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Mensagens do Ticket -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Mensagens</h5>
+                </div>
+                <div class="card-body">
+                    <div id="support-messages" class="support-chat mb-4">
+                        {% for message in messages %}
+                        <div class="message-container {% if message.sender_id == current_user.id %}message-sent{% else %}message-received{% endif %} mb-3">
+                            <div class="message-header">
+                                <strong>{{ message.sender.username }}</strong>
+                                {% if current_user.is_admin and ticket.user_id != message.sender_id %}
+                                <span class="badge bg-danger ms-2">Admin</span>
+                                {% endif %}
+                                <small class="text-muted ms-2">{{ message.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                            <div class="message-bubble p-3 rounded">
+                                <div class="message-text">{{ message.message|nl2br }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if ticket.status != 'resolvido' %}
+                    <div class="new-message-form mt-4">
+                        <form method="POST" action="{{ url_for('support_view', ticket_id=ticket.id) }}">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-3">
+                                {{ form.message.label(class="form-label") }}
+                                {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows=3, placeholder="Digite sua mensagem...") }}
+                                {% for error in form.message.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="d-flex justify-content-end">
+                                {{ form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mt-4">
+                        <i class="fas fa-check-circle me-2"></i> Este ticket está marcado como resolvido. Se precisar de mais ajuda, reabra o ticket enviando uma nova mensagem.
+                    </div>
+                    <div class="new-message-form mt-4">
+                        <form method="POST" action="{{ url_for('support_view', ticket_id=ticket.id) }}">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-3">
+                                {{ form.message.label(class="form-label") }}
+                                {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows=3, placeholder="Digite sua mensagem para reabrir o ticket...") }}
+                                {% for error in form.message.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="d-flex justify-content-end">
+                                {{ form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Scroll para o final da conversa
+        const chatContainer = document.getElementById('support-messages');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    });
+</script>
+{% endblock %}
+
+{% block page_styles %}
+<style>
+    .support-chat {
+        max-height: 500px;
+        overflow-y: auto;
+        padding: 1rem;
+        background-color: rgba(0,0,0,0.03);
+        border-radius: 8px;
+    }
+    
+    .message-sent {
+        text-align: right;
+    }
+    
+    .message-received .message-bubble {
+        background-color: #f1f1f1;
+        display: inline-block;
+        max-width: 80%;
+        text-align: left;
+    }
+    
+    .message-sent .message-bubble {
+        background-color: #d1e7ff;
+        display: inline-block;
+        max-width: 80%;
+        text-align: left;
+    }
+    
+    .message-text {
+        white-space: pre-wrap;
+    }
+</style>
+{% endblock %}

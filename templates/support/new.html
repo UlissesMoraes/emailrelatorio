@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Novo Ticket de Suporte | Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('support') }}" class="btn btn-outline-secondary me-3">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h2 class="mb-0"><i class="fas fa-plus-circle me-2"></i> Novo Ticket de Suporte</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Detalhes do Ticket</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('support_new') }}">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.subject.label(class="form-label") }}
+                            {{ form.subject(class="form-control" + (" is-invalid" if form.subject.errors else ""), placeholder="Informe o assunto do ticket") }}
+                            {% for error in form.subject.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.message.label(class="form-label") }}
+                            {{ form.message(class="form-control" + (" is-invalid" if form.message.errors else ""), rows=6, placeholder="Descreva detalhadamente sua dúvida ou problema...") }}
+                            {% for error in form.message.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                            <small class="form-text text-muted">
+                                Descreva detalhadamente seu problema para que possamos ajudá-lo melhor.
+                            </small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('support') }}" class="btn btn-outline-secondary">Cancelar</a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-4 mt-4 mt-lg-0">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Dicas de Suporte</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-3">
+                            <i class="fas fa-info-circle text-primary me-2"></i>
+                            Seja específico sobre qual funcionalidade está tendo problema.
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-info-circle text-primary me-2"></i>
+                            Inclua mensagens de erro, se houver.
+                        </li>
+                        <li class="mb-3">
+                            <i class="fas fa-info-circle text-primary me-2"></i>
+                            Mencione quais passos você seguiu antes do problema acontecer.
+                        </li>
+                        <li>
+                            <i class="fas fa-info-circle text-primary me-2"></i>
+                            Um administrador irá responder seu ticket o mais breve possível.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

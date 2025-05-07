@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Todos os Emails | Gerenciador de Relatórios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Gerenciar Emails</h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Início</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Administração</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Emails</li>
+            </ol>
+        </nav>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filtrar por Usuário</h5>
+            {% if current_user_filter %}
+            <a href="{{ url_for('admin_emails') }}" class="btn btn-sm btn-outline-secondary">Limpar Filtro</a>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for user in users %}
+                <div class="col-md-3 mb-2">
+                    <a href="{{ url_for('admin_emails', user_id=user.id) }}" class="btn btn-outline-{{ 'primary' if current_user_filter and current_user_filter.id == user.id else 'secondary' }} w-100">
+                        {{ user.username }} ({{ user.email_accounts.count() }} contas)
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                {% if current_user_filter %}
+                Emails de {{ current_user_filter.username }}
+                {% else %}
+                Todos os Emails
+                {% endif %}
+            </h5>
+            <div>
+                <span class="text-muted me-2">Página {{ emails.page }} de {{ emails.pages }}</span>
+                <span class="badge bg-primary">{{ emails.total }} emails</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuário</th>
+                            <th>Conta de Email</th>
+                            <th>Pasta</th>
+                            <th>Assunto</th>
+                            <th>Remetente</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for email in emails.items %}
+                        <tr>
+                            <td>{{ email.id }}</td>
+                            <td>{{ email.account.user.username }}</td>
+                            <td>{{ email.account.email_address }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ email.folder }}</span>
+                            </td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 250px;" title="{{ email.subject }}">
+                                    {{ email.subject or "(Sem assunto)" }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ email.sender }}">
+                                    {{ email.sender }}
+                                </span>
+                            </td>
+                            <td>{{ email.date.strftime('%d/%m/%Y %H:%M') if email.date else 'N/A' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if emails.pages > 1 %}
+            <nav aria-label="Email pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% for page_num in range(1, emails.pages + 1) %}
+                    <li class="page-item {{ 'active' if page_num == emails.page else '' }}">
+                        <a class="page-link" href="{{ url_for('admin_emails', page=page_num, user_id=current_user_filter.id if current_user_filter else None) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
